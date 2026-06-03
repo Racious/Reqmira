@@ -1,5 +1,0 @@
-version: 1
-id: 新請求
-name: 新請求
-method: GET
-url: '{{baseUrl}}/'

@@ -1,5 +1,0 @@
-version: 1
-id: new-request
-name: 未命名請求
-method: GET
-url: https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_AVG_ALL
