@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ApiLens — 輕量 API 工作台 · 整合開發定稿</title>
+<style>
+  :root{
+    --bg:#0b0f17; --bg-soft:#111725; --panel:#141b2b; --panel-2:#18233d; --border:#26304a;
+    --fg:#e6ecf5; --fg-dim:#9aa7bd; --fg-faint:#64718c;
+    --accent:#38bdf8; --accent-2:#d8b46a; --accent-3:#a78bfa;
+    --good:#5fd38d; --bad:#e5778a; --warn:#e0b15a;
+    --code-bg:#0b1020; --mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:
+      radial-gradient(circle at top left, rgba(56,189,248,.10), transparent 38%),
+      radial-gradient(circle at top right, rgba(167,139,250,.08), transparent 36%),
+      var(--bg);
+    color:var(--fg); font-family:"Segoe UI","Noto Sans TC","PingFang TC",system-ui,sans-serif;
+    font-size:16px; line-height:1.75; letter-spacing:.01em;}
+  .wrap{display:grid; grid-template-columns:290px 1fr; min-height:100vh}
+  nav.side{position:sticky; top:0; align-self:start; height:100vh; overflow-y:auto;
+    background:rgba(8,17,31,.7); backdrop-filter:blur(14px); border-right:1px solid var(--border); padding:26px 18px}
+  .brand{padding:16px; border:1px solid var(--border); border-radius:16px;
+    background:linear-gradient(145deg, rgba(56,189,248,.14), rgba(167,139,250,.10)); margin-bottom:18px}
+  .brand .logo{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;
+    background:linear-gradient(135deg,var(--accent),var(--accent-3)); color:#06111f; font-weight:900; margin-bottom:10px}
+  .brand h1{margin:0; font-size:21px; letter-spacing:.02em}
+  .brand p{margin:6px 0 0; color:var(--fg-dim); font-size:12.5px}
+  nav.side a{display:block; color:var(--fg-dim); text-decoration:none; padding:7px 12px; border-radius:9px;
+    font-size:13.5px; margin:2px 0; border-left:2px solid transparent; transition:.15s}
+  nav.side a:hover{background:var(--bg-soft); color:var(--fg)}
+  nav.side a.active{color:var(--accent); background:rgba(56,189,248,.09); border-left-color:var(--accent)}
+  .grp{font-size:11px; text-transform:uppercase; letter-spacing:.14em; color:var(--fg-faint); margin:20px 0 6px 12px}
+  main{padding:50px 64px 120px; max-width:1000px}
+  h1.title{font-size:34px; margin:0 0 6px}
+  h2{font-size:25px; margin:62px 0 14px; padding-bottom:10px; border-bottom:1px solid var(--border); scroll-margin-top:24px}
+  h3{font-size:18.5px; margin:32px 0 10px; color:var(--accent)}
+  h4{margin:0 0 6px; font-size:15.5px; color:#f1f5fb}
+  p{margin:12px 0}
+  .lead{color:var(--fg-dim); font-size:17px}
+  ul,ol{padding-left:22px} li{margin:6px 0}
+  code{font-family:var(--mono); background:var(--code-bg); padding:2px 7px; border-radius:5px; font-size:13.5px; color:var(--accent-2); border:1px solid var(--border)}
+  pre{background:var(--code-bg); border:1px solid var(--border); border-radius:12px; padding:18px 20px; overflow-x:auto; font-family:var(--mono); font-size:13px; line-height:1.6}
+  pre code{background:none;border:none;padding:0;color:#cdd6e6}
+  .badge{display:inline-block; background:rgba(216,180,106,.14); color:var(--accent-2); border:1px solid rgba(216,180,106,.3); padding:3px 12px; border-radius:999px; font-size:12.5px; margin:0 8px 8px 0}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:20px 24px; margin:16px 0}
+  .note{border-left:3px solid var(--accent); background:rgba(56,189,248,.06); padding:14px 20px; border-radius:0 10px 10px 0; margin:18px 0; color:var(--fg-dim)}
+  .note b{color:var(--accent)}
+  .warnbox{border-left:3px solid var(--warn); background:rgba(224,177,90,.07); padding:14px 20px; border-radius:0 10px 10px 0; margin:18px 0; color:var(--fg-dim)}
+  .goodbox{border-left:3px solid var(--good); background:rgba(95,211,141,.07); padding:14px 20px; border-radius:0 10px 10px 0; margin:18px 0; color:var(--fg-dim)}
+  table{width:100%; border-collapse:collapse; margin:18px 0; font-size:14px}
+  th,td{border:1px solid var(--border); padding:10px 14px; text-align:left; vertical-align:top}
+  th{background:var(--bg-soft); color:var(--accent); font-weight:600}
+  td .ok{color:var(--good)} td .no{color:var(--bad)} td .mid{color:var(--warn)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px} .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px}
+  .card{background:var(--panel-2); border:1px solid var(--border); border-radius:12px; padding:16px 18px}
+  .card p{margin:0; color:var(--fg-dim); font-size:13.5px}
+  .src{display:inline-block; font-size:10.5px; letter-spacing:.08em; padding:1px 7px; border-radius:5px; margin-left:8px; vertical-align:middle; font-weight:600}
+  .src.a{background:rgba(56,189,248,.14); color:var(--accent); border:1px solid rgba(56,189,248,.3)}
+  .src.b{background:rgba(95,211,141,.12); color:var(--good); border:1px solid rgba(95,211,141,.3)}
+  .src.c{background:rgba(167,139,250,.14); color:var(--accent-3); border:1px solid rgba(167,139,250,.3)}
+  /* architecture diagram (from Vela) */
+  .arch{display:flex; flex-direction:column; gap:12px; margin:22px 0}
+  .layer{border:1px solid var(--border); border-radius:12px; padding:14px 18px; background:var(--bg-soft); position:relative}
+  .layer .ltitle{position:absolute; top:-10px; left:16px; background:var(--bg); padding:0 10px; font-size:11px; letter-spacing:.14em; color:var(--accent); text-transform:uppercase}
+  .layer .boxes{display:flex; gap:12px; flex-wrap:wrap; margin-top:6px}
+  .box{flex:1; min-width:120px; background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:11px 14px; text-align:center; font-size:13.5px}
+  .box small{display:block; color:var(--fg-faint); font-size:11.5px; margin-top:3px}
+  .flowarrow{text-align:center; color:var(--fg-faint); font-size:18px; line-height:1}
+  .ipc{background:rgba(56,189,248,.07); border-color:rgba(56,189,248,.35)}
+  /* phases */
+  .phase{display:flex; gap:16px; margin:14px 0; align-items:flex-start}
+  .pnum{flex:none; width:54px; height:54px; border-radius:12px; background:linear-gradient(135deg,#1a2740,#101725); border:1px solid var(--accent); color:var(--accent); display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:700; font-size:13px; text-align:center; line-height:1.2}
+  .pbody{flex:1; background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 18px}
+  .pbody h4{margin:0 0 4px} .pbody .goal{color:var(--accent-2); font-size:13px; margin-bottom:8px}
+  .tag{display:inline-block; font-size:11.5px; background:var(--bg-soft); border:1px solid var(--border); border-radius:6px; padding:2px 9px; margin:3px 5px 0 0; color:var(--fg-dim)}
+  .tag.good{color:#bbf7d0;border-color:rgba(95,211,141,.32)} .tag.warn{color:#fde68a;border-color:rgba(224,177,90,.3)}
+  .tree{font-family:var(--mono); font-size:13px; color:var(--fg-dim); line-height:1.85}
+  .tree .d{color:var(--accent)} .tree .c{color:var(--fg-faint)}
+  .creed{text-align:center; color:var(--fg-faint); font-size:13px; font-style:italic; margin-top:60px; letter-spacing:.05em}
+  footer{color:var(--fg-faint); font-size:12.5px; border-top:1px solid var(--border); margin-top:50px; padding-top:20px}
+  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#26304a;border-radius:6px} ::-webkit-scrollbar-track{background:transparent}
+  @media print{body{background:#fff;color:#111} nav.side{display:none} .wrap{display:block} main{max-width:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="side">
+    <div class="brand">
+      <div class="logo">AL</div>
+      <h1>ApiLens</h1>
+      <p>輕量 API 工作台 · 整合開發定稿</p>
+    </div>
+    <div class="grp">概覽</div>
+    <a href="#vision">1. 專案願景</a>
+    <a href="#pain">2. 目標與痛點</a>
+    <a href="#positioning">3. 產品定位</a>
+    <div class="grp">設計</div>
+    <a href="#stack">4. 技術選型</a>
+    <a href="#arch">5. 系統架構</a>
+    <a href="#features">6. 核心功能</a>
+    <a href="#ux">7. 使用流程與介面</a>
+    <div class="grp">資料</div>
+    <a href="#model">8. 資料模型</a>
+    <a href="#format">9. 檔案格式 (YAML)</a>
+    <a href="#structure">10. 專案目錄結構</a>
+    <div class="grp">進階</div>
+    <a href="#automation">11. 自動化 · Flow</a>
+    <a href="#ai">12. AI 友善與沉澱機制</a>
+    <div class="grp">執行</div>
+    <a href="#mvp">13. MVP 範圍</a>
+    <a href="#roadmap">14. 開發路線圖</a>
+    <a href="#risk">15. 風險與對策</a>
+    <a href="#next">16. 下一步</a>
+  </nav>
+
+  <main>
+    <span class="badge">ApiLens v1 定稿</span><span class="badge">整合自 3 份草案</span><span class="badge">2026-06-03</span>
+    <h1 class="title">ApiLens — 輕量 API 工作台</h1>
+    <p class="lead">一份可直接據以開工的整合開發定稿。由天城（AMAGI）整合三份草案精華：以 <b>ApiLens</b> 為主體、補入 <b>Vela</b> 的架構論述、吸收 <b>Agent Console</b> 的流程與審核機制。</p>
+    <div class="note"><b>本稿來源標記：</b>章節內以 <span class="src a">VELA</span> <span class="src b">APILENS</span> <span class="src c">CONSOLE</span> 標示主要參考來源，便於老爺回溯。</div>
+
+    <section id="vision">
+      <h2>1. 專案願景</h2>
+      <p>打造一款<b>輕量、離線優先、Git 友善</b>的桌面 API 工作台，取代 Postman 在日常工作中的角色。核心不在功能堆疊，而在四件事：</p>
+      <div class="grid2">
+        <div class="panel"><h4>更便利</h4>啟動快、體積小（Tauri 約 5–10MB）、介面直覺；集合以純文字存於本機，可進 Git 版控與 code review。</div>
+        <div class="panel"><h4>更好讀</h4>把深層巢狀的 Request / Response 拆解成樹狀、表格、型別著色與路徑標示，「看懂資料」不再費力。</div>
+        <div class="panel"><h4>更自動化</h4>從回應自動抽取變數、串接下一請求；定義 Flow 一鍵跑完整串 API 並產出報告。</div>
+        <div class="panel"><h4>更能沉澱</h4>從 Request/Response 直接產出 Markdown 文件、DTO / Swagger 草稿，銜接 Spring Boot 工作流。</div>
+      </div>
+      <div class="note"><b>定位：</b>不重做一個 Postman。ApiLens 聚焦老爺真正的痛點——「拆解、分析、自動化、文件化」，以此為差異化主軸，其餘功能夠用即可。</div>
+    </section>
+
+    <section id="pain">
+      <h2>2. 目標與痛點 <span class="src b">APILENS</span></h2>
+      <p class="lead">主要解決工作上測試 API 時「能發送，但不好理解、難整理、難自動化」的問題。</p>
+      <table>
+        <tr><th>需求面向</th><th>目前常見問題</th><th>ApiLens 目標</th></tr>
+        <tr><td>工具負擔</td><td>Postman 功能完整但偏重、啟動慢、吃記憶體</td><td><span class="ok">Tauri 殼層，輕量原生</span></td></tr>
+        <tr><td>雲端綁定</td><td>需登入、資料上雲、有鎖定疑慮</td><td><span class="ok">完全離線，資料存本機純文字</span></td></tr>
+        <tr><td>參數閱讀</td><td>Query/Header/Body 分散，JSON 深層欄位不好看</td><td><span class="ok">自動拆解 Path/Query/Header/Body 與型別</span></td></tr>
+        <tr><td>文件產出</td><td>測試完還要另寫 Markdown / Swagger</td><td><span class="ok">從 Request/Response 直接產文件草稿</span></td></tr>
+        <tr><td>自動化</td><td>流程重跑與 Token 串接需額外設定</td><td><span class="ok">Flow Runner、變數擷取與 CLI</span></td></tr>
+        <tr><td>版本控管</td><td>Collection diff 不直覺或仰賴雲端</td><td><span class="ok">YAML / JSON，可直接放進 Git</span></td></tr>
+      </table>
+    </section>
+
+    <section id="positioning">
+      <h2>3. 產品定位 <span class="src b">APILENS</span></h2>
+      <div class="goodbox"><b>核心定位：</b>ApiLens 是一款本機優先、Git 友善、以<b>參數拆解與 API 閱讀</b>為核心的輕量 API 分析工作台。</div>
+      <div class="grid2">
+        <div class="card"><h4>Local-first</h4><p>Collection、環境變數、歷史紀錄優先存本機，不依賴雲端。</p></div>
+        <div class="card"><h4>Readable-first</h4><p>把 API 拆成工程師易懂的區塊、表格、樹狀與文件視圖。</p></div>
+        <div class="card"><h4>Git-friendly</h4><p>以 YAML / JSON 為主資料格式，便於 commit、diff 與 review。</p></div>
+        <div class="card"><h4>Automation-ready</h4><p>第一版即預留 Flow Runner、CLI、報告輸出與 AI 整合能力。</p></div>
+      </div>
+      <h3>不做什麼</h3>
+      <p>第一階段不追求完整取代 Postman 的平台功能——雲端團隊協作、Public API Network、大型 Mock 平台、商業 API Portal。這些會讓專案太早變重。</p>
+    </section>
+
+    <section id="stack">
+      <h2>4. 技術選型 <span class="src a">VELA</span><span class="src b">APILENS</span></h2>
+      <p>核心原則：<b>輕量</b>、<b>繞過瀏覽器限制</b>、<b>老爺易維護</b>。</p>
+      <table>
+        <tr><th>層</th><th>選擇</th><th>理由</th></tr>
+        <tr><td>桌面殼層</td><td><b>Tauri 2</b></td><td>成品輕巧、記憶體佔用遠低於 Electron；用系統 WebView，不打包整個 Chromium</td></tr>
+        <tr><td>前端</td><td><b>Vue 3</b>（Composition API + TypeScript）</td><td>輕量、響應式強；觀念與 Angular 相通，老爺過渡平滑</td></tr>
+        <tr><td>核心引擎</td><td><b>Rust</b>（Tauri command）</td><td>HTTP 由 Rust 端發送，<b>繞過 CORS</b>；原生效能，做高速 deep-diff</td></tr>
+        <tr><td>HTTP 函式庫</td><td><code>reqwest</code></td><td>Rust 生態成熟的 async HTTP client</td></tr>
+        <tr><td>狀態管理</td><td><b>Pinia</b> + Vue Router</td><td>Vue 官方推薦，輕巧直覺</td></tr>
+        <tr><td>編輯器/檢視</td><td>CodeMirror / Monaco · 虛擬列表 · JSON Tree</td><td>大型回應流暢呈現</td></tr>
+        <tr><td>建構工具</td><td><b>Vite</b></td><td>Tauri + Vue 預設，熱更新快</td></tr>
+        <tr><td>儲存格式</td><td><b>YAML / JSON</b></td><td>可讀、Git 可 diff、AI 友善（取代 TOML 草案，統一格式）</td></tr>
+        <tr><td>歷史紀錄</td><td>SQLite（可選）</td><td>大量送出紀錄的查詢效能</td></tr>
+      </table>
+      <div class="note"><b>格式決議：</b>Vela 草案原採 TOML，本定稿統一改採 <b>YAML</b>——它能自然承載巢狀 Request 結構、生態廣、AI 解析方便，且已是 ApiLens 草案的選擇。</div>
+    </section>
+
+    <section id="arch">
+      <h2>5. 系統架構 <span class="src a">VELA</span></h2>
+      <p>三層架構，前後端以 Tauri IPC 橋接。<b>HTTP 流量一律經 Rust 端</b>，前端僅負責呈現與互動。</p>
+      <div class="arch">
+        <div class="layer">
+          <span class="ltitle">前端 · Vue 3 (WebView)</span>
+          <div class="boxes">
+            <div class="box">Request Editor<small>URL / Header / Body / Auth</small></div>
+            <div class="box">Inspector<small>參數拆解 · 型別</small></div>
+            <div class="box">Response Viewer<small>JSON 樹 · Diff</small></div>
+            <div class="box">Flow 編排<small>批次自動化</small></div>
+          </div>
+        </div>
+        <div class="flowarrow">▲ ▼</div>
+        <div class="layer ipc">
+          <span class="ltitle">橋接 · Tauri IPC（invoke / event）</span>
+          <div class="boxes">
+            <div class="box">指令呼叫<small>send_request · diff · save…</small></div>
+            <div class="box">事件推送<small>進度 · 串流回應</small></div>
+          </div>
+        </div>
+        <div class="flowarrow">▲ ▼</div>
+        <div class="layer">
+          <span class="ltitle">後端 · Rust 核心</span>
+          <div class="boxes">
+            <div class="box">RequestRunner<small>reqwest · 無 CORS</small></div>
+            <div class="box">VariableResolver<small>{{var}} 注入</small></div>
+            <div class="box">ResponseAnalyzer<small>schema · 型別</small></div>
+            <div class="box">Deep-Diff<small>結構比對</small></div>
+            <div class="box">FileStore<small>集合讀寫</small></div>
+          </div>
+        </div>
+        <div class="flowarrow">▼</div>
+        <div class="layer">
+          <span class="ltitle">本機檔案系統</span>
+          <div class="boxes">
+            <div class="box">Collections<small>YAML · Git 可控</small></div>
+            <div class="box">Environments<small>變數 · 機密</small></div>
+            <div class="box">History / Reports<small>快照 · 報告</small></div>
+          </div>
+        </div>
+      </div>
+      <div class="note"><b>架構靈魂：</b>把 HTTP 發送放在 Rust 端，讓 ApiLens 同時擁有「Web 介面的開發便利」與「原生 client 的無限制」——無 CORS、可自訂憑證、可走系統代理。這是 Bruno 用 Electron 換來、而我們用 Tauri 更輕量達成的。</div>
+    </section>
+
+    <section id="features">
+      <h2>6. 核心功能 <span class="src b">APILENS</span></h2>
+
+      <h3>6.1 Request Builder</h3>
+      <p>建立並發送常見 HTTP Request：Method、URL、Path Variable、Query、Header、Cookie、Auth、Body。</p>
+      <div>
+        <span class="tag">GET</span><span class="tag">POST</span><span class="tag">PUT</span><span class="tag">PATCH</span><span class="tag">DELETE</span>
+        <span class="tag">JSON Body</span><span class="tag">Form Data</span><span class="tag">Bearer Token</span><span class="tag">Basic Auth</span>
+      </div>
+
+      <h3>6.2 Request Inspector（差異化主功能）</h3>
+      <p>自動將 URL 與 Body 拆解成可讀結構，確認參數來源、型別與必要性——這正中老爺「參數易拆解」的核心需求。</p>
+      <table>
+        <tr><th>區塊</th><th>範例</th><th>分析內容</th></tr>
+        <tr><td>Path</td><td><code>/api/users/{userId}/orders</code></td><td>辨識 userId 為 path variable</td></tr>
+        <tr><td>Query</td><td><code>?status=PAID&page=1</code></td><td>推測 status 為 enum、page 為 number</td></tr>
+        <tr><td>Headers</td><td><code>Authorization: Bearer {{token}}</code></td><td>辨識 Bearer Token，提示可綁環境變數</td></tr>
+        <tr><td>Body</td><td><code>{"items":[...]}</code></td><td>解析 JSON tree、陣列欄位與深層型別</td></tr>
+      </table>
+
+      <h3>6.3 Response Analyzer + Diff</h3>
+      <div class="grid3">
+        <div class="card"><h4>JSON Tree</h4><p>樹狀結構，可展開收合、複製欄位路徑（<code>data.items[0].id</code>）、型別著色。</p></div>
+        <div class="card"><h4>Schema 推測</h4><p>依 response 推測欄位型別，產生 DTO / TypeScript Interface 草稿。</p></div>
+        <div class="card"><h4>Diff 比對</h4><p>Rust 端結構化 deep-diff：<span class="ok">綠＝新增</span>、<span class="no">紅＝刪除</span>、<span class="mid">黃＝變更</span>。</p></div>
+      </div>
+      <p>比對情境：① 同一請求兩次回應（看 API 是否變了）；② 兩個環境（dev vs prod 參數差異）。</p>
+
+      <h3>6.4 文件產生器</h3>
+      <p>從 Request / Response 直接產生 Markdown API 文件，降低手動整理成本。</p>
+      <pre><code># POST /api/orders
+
+## Request Body
+| 欄位 | 型別 | 必填 | 說明 |
+|---|---|---|---|
+| userId | number | 是 | 使用者 ID |
+| items[].sku | string | 是 | 商品代號 |</code></pre>
+    </section>
+
+    <section id="ux">
+      <h2>7. 使用流程與介面 <span class="src b">APILENS</span></h2>
+      <p>主流程：建立 Workspace → 新增 Collection → 建立 Request → 發送與分析 → 產生文件 / 流程。</p>
+      <h3>主要畫面區塊</h3>
+      <table>
+        <tr><th>區塊</th><th>用途</th><th>備註</th></tr>
+        <tr><td>左側 Collection Tree</td><td>管理資料夾與 API request</td><td>類似 IDE 專案樹</td></tr>
+        <tr><td>中間 Request Editor</td><td>編輯 Method、URL、Header、Body、Auth</td><td>支援 Raw / Table / Form 視圖</td></tr>
+        <tr><td>右側 Inspector</td><td>參數拆解、型別分析、文件草稿</td><td><b>差異化主功能</b></td></tr>
+        <tr><td>下方 Response Viewer</td><td>body、header、time、size</td><td>JSON Tree / Raw / Preview / Diff</td></tr>
+      </table>
+    </section>
+
+    <section id="model">
+      <h2>8. 資料模型 <span class="src b">APILENS</span></h2>
+      <table>
+        <tr><th>Entity</th><th>主要欄位</th><th>說明</th></tr>
+        <tr><td>Workspace</td><td>id、name、rootPath、settings</td><td>一個本機工作區，對應一個專案 repo</td></tr>
+        <tr><td>Collection</td><td>id、name、description、folders</td><td>API 群組，例如某系統或模組</td></tr>
+        <tr><td>Request</td><td>id、name、method、url、headers、query、body、auth</td><td>單一 API request 設定</td></tr>
+        <tr><td>Environment</td><td>name、variables</td><td>local、dev、sit、prod 等環境變數</td></tr>
+        <tr><td>History</td><td>requestId、sentAt、duration、status、response</td><td>送出紀錄，可用 SQLite 保存</td></tr>
+        <tr><td>Flow</td><td>id、name、steps、extract、assert</td><td>多步驟 API 自動化流程</td></tr>
+      </table>
+      <h3>Request 內部結構</h3>
+      <pre class="tree">Request
+├─ meta        <span class="c"># id · name · description</span>
+├─ http        <span class="c"># method · url · pathParams · query · headers · cookies · body</span>
+├─ auth
+├─ scripts     <span class="c"># preRequest · postResponse</span>
+├─ tests
+└─ docs</pre>
+    </section>
+
+    <section id="format">
+      <h2>9. 檔案儲存格式 (YAML) <span class="src b">APILENS</span></h2>
+      <p class="lead">不自創 DSL。採 YAML / JSON，便於閱讀、Git diff、AI 分析與後續轉換。保留 <code>version</code> 欄位以利日後 migration。</p>
+      <h3>Request YAML 範例</h3>
+      <pre><code>version: 1
+id: get-user
+name: 查詢使用者
+method: GET
+url: "{{baseUrl}}/api/users/{{userId}}"
+
+pathParams:
+  userId: { value: "1001", type: number, required: true, description: 使用者 ID }
+
+queryParams:
+  includeRole: { value: true, type: boolean, required: false }
+
+headers:
+  Authorization: "Bearer {{token}}"
+  Accept: "application/json"
+
+# 回應抽取 → runtime 變數
+extract:
+  - from: "$.data.token"
+    to: "authToken"
+
+tests:
+  - { expect: status, toBe: 200 }
+  - { expect: json.code, toBe: "0000" }
+
+docs:
+  tags: [User, Query]</code></pre>
+      <h3>Environment YAML 範例</h3>
+      <pre><code>name: local
+variables:
+  baseUrl: "http://localhost:8080"
+  token: ""        # 機密欄位，排除於 Git
+  defaultUserId: "1001"</code></pre>
+    </section>
+
+    <section id="structure">
+      <h2>10. 專案目錄結構 <span class="src a">VELA</span><span class="src b">APILENS</span></h2>
+      <div class="grid2">
+        <div>
+          <h4>程式碼結構</h4>
+          <pre class="tree"><span class="d">apilens/</span>
+├─ <span class="d">src/</span>              <span class="c"># Vue 3 前端</span>
+│  ├─ app/          <span class="c"># layout · router · stores</span>
+│  ├─ <span class="d">features/</span>
+│  │  ├─ collections/
+│  │  ├─ requests/
+│  │  ├─ environments/
+│  │  ├─ response-viewer/
+│  │  ├─ inspector/
+│  │  ├─ history/
+│  │  ├─ runner/
+│  │  └─ docs-generator/
+│  └─ shared/       <span class="c"># components · utils · types</span>
+├─ <span class="d">src-tauri/</span>       <span class="c"># Rust 後端</span>
+│  └─ src/
+│     ├─ commands/  <span class="c"># collection · request · env</span>
+│     └─ services/  <span class="c"># file_store · request_runner</span>
+│                   <span class="c">#  variable_resolver · response_analyzer</span>
+├─ package.json
+└─ README.md</pre>
+        </div>
+        <div>
+          <h4>使用者資料結構（可 Git）</h4>
+          <pre class="tree"><span class="d">workspace/</span>
+├─ apilens.json
+├─ <span class="d">environments/</span>
+│  ├─ local.yaml
+│  ├─ dev.yaml
+│  └─ prod.yaml
+├─ <span class="d">collections/</span>
+│  ├─ auth/login.api.yaml
+│  └─ users/get-user.api.yaml
+├─ <span class="d">flows/</span>
+│  └─ login-and-query.flow.yaml
+├─ reports/
+└─ history/</pre>
+          <h4 style="margin-top:18px">主要 Rust 模組責任</h4>
+          <table style="font-size:13px;margin-top:8px">
+            <tr><td>RequestRunner</td><td>發送 HTTP，回傳 status/headers/body/time/size</td></tr>
+            <tr><td>VariableResolver</td><td>解析 <code>{{baseUrl}}</code>、<code>{{token}}</code></td></tr>
+            <tr><td>ResponseAnalyzer</td><td>分析 JSON 結構、型別、路徑、schema 草稿</td></tr>
+            <tr><td>FileStore</td><td>YAML / JSON 讀寫與格式化</td></tr>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="automation">
+      <h2>11. 自動化 · Flow <span class="src b">APILENS</span><span class="src c">CONSOLE</span></h2>
+      <p class="lead">自動化是 ApiLens 超越一般 API Client 的關鍵。Flow 定義吸收 Agent Console 的 workflow 設計——含<b>觸發條件、輸入欄位、逐步定義</b>，比單純串接更完整。</p>
+      <h3>Flow YAML 範例</h3>
+      <pre><code>version: 1
+id: login-and-query
+name: 登入並查詢使用者
+description: 先登入取得 token，再帶 token 查詢使用者
+
+triggers: [login, smoke-test, 回歸驗證]   # 可供日後 AI/CLI 匹配
+
+inputs:
+  - { id: account, label: 帳號, type: text, required: true }
+
+steps:
+  - name: Login
+    request: collections/auth/login.api.yaml
+    extract:
+      authToken: "$.data.access_token"      # 抽取 → runtime 變數
+
+  - name: Query User
+    request: collections/users/get-user.api.yaml
+    variables: { userId: 1001 }
+    assert:
+      status: 200
+      json.code: "0000"</code></pre>
+      <div class="grid3">
+        <div class="card"><h4>Token Extractor</h4><p>登入後自動從 response 擷取 token，寫入 runtime 變數，注入後續請求。</p></div>
+        <div class="card"><h4>Assertion</h4><p>檢查 status、header、json path、response time，產出測試結果。</p></div>
+        <div class="card"><h4>HTML Report</h4><p>批次執行後產生可分享的測試報告。</p></div>
+      </div>
+      <h3>CLI 預留指令</h3>
+      <pre><code>apilens run collections/users/get-user.api.yaml --env local
+apilens run-flow flows/login-and-query.flow.yaml --env dev
+apilens export-doc collections/users --format markdown
+apilens analyze response.json --to dto-java</code></pre>
+    </section>
+
+    <section id="ai">
+      <h2>12. AI 友善與沉澱機制 <span class="src b">APILENS</span><span class="src c">CONSOLE</span></h2>
+      <p class="lead">資料採純文字 YAML / JSON，易與 Codex / Claude / 本機 Agent 整合。第一階段<b>先產生 prompt，不直接串模型</b>，降低不穩定與成本。</p>
+      <table>
+        <tr><th>功能</th><th>說明</th><th>第一階段做法</th></tr>
+        <tr><td>Prompt Export</td><td>依目前 API 產生可貼給 AI 的分析 prompt</td><td>先產文字</td></tr>
+        <tr><td>DTO 生成</td><td>從 schema 產生 Java DTO 草稿</td><td>本機模板，再交 AI 優化</td></tr>
+        <tr><td>Controller 草稿</td><td>依 API 定義產 Spring Boot Controller 範例</td><td>輸出 prompt / markdown</td></tr>
+        <tr><td>測試案例建議</td><td>依參數列出正常、邊界、錯誤案例</td><td>由 analyzer 產基礎案例</td></tr>
+      </table>
+      <h3>沉澱安全護欄（借鑑 Agent Console 審核分級）</h3>
+      <p>未來若讓 AI 自動歸納可重用的 Request 範本、文件或測試案例，採<b>分級審核</b>——AI 負責建議，老爺批准後才寫入：</p>
+      <table>
+        <tr><th>等級</th><th>說明</th><th>建議</th></tr>
+        <tr><td>Level 1</td><td>AI 提出建議，使用者確認後寫入</td><td><span class="ok">第一版推薦</span></td></tr>
+        <tr><td>Level 2</td><td>低風險紀錄自動寫入（如 run 結果、耗時）</td><td>MVP 後加入</td></tr>
+        <tr><td>Level 3</td><td>AI 自動修改範本與流程</td><td><span class="no">不建議第一版啟用</span></td></tr>
+      </table>
+      <div class="note"><b>指導原則：</b>AI 負責建議，人類負責批准沉澱。這套護欄確保自動化不致悄悄累積錯誤資產。</div>
+    </section>
+
+    <section id="mvp">
+      <h2>13. MVP 範圍 <span class="src b">APILENS</span></h2>
+      <div class="goodbox"><b>第一版目標：</b>做出可日常使用的輕量 API Client——支援本機 YAML collection、常見 HTTP 方法、環境變數、Response 顯示與基礎參數分析。</div>
+      <table>
+        <tr><th>功能</th><th>v0.1</th><th>備註</th></tr>
+        <tr><td>Workspace / Collection / Request 管理</td><td><span class="tag good">納入</span></td><td>本機資料夾 + YAML</td></tr>
+        <tr><td>GET / POST / PUT / DELETE</td><td><span class="tag good">納入</span></td><td>基本 HTTP 方法</td></tr>
+        <tr><td>Query / Header / JSON Body</td><td><span class="tag good">納入</span></td><td>暫不做複雜 multipart</td></tr>
+        <tr><td>Environment Variables</td><td><span class="tag good">納入</span></td><td><code>{{baseUrl}}</code>、<code>{{token}}</code></td></tr>
+        <tr><td>Response Viewer + JSON Tree</td><td><span class="tag good">納入</span></td><td>Status / Time / Headers / Body</td></tr>
+        <tr><td>Request Inspector</td><td><span class="tag good">納入</span></td><td>主打功能，先做 URL / JSON 拆解</td></tr>
+        <tr><td>curl / Postman 匯入</td><td><span class="tag warn">v0.2</span></td><td>解析既有格式</td></tr>
+        <tr><td>Diff / 文件產生</td><td><span class="tag warn">v0.3</span></td><td>分析強化階段</td></tr>
+        <tr><td>Flow Runner / CLI</td><td><span class="tag warn">v0.4</span></td><td>自動化階段</td></tr>
+      </table>
+    </section>
+
+    <section id="roadmap">
+      <h2>14. 開發路線圖 <span class="src a">VELA</span><span class="src b">APILENS</span></h2>
+      <div class="phase"><div class="pnum">P1<br>能用</div><div class="pbody">
+        <h4>地基 — 能發請求、能看漂亮回應</h4>
+        <div class="goal">交付：Tauri+Vue 骨架、Request Builder、發送 GET/POST、Response 顯示、YAML 儲存 Collection</div>
+        <span class="tag">專案骨架</span><span class="tag">Rust send_request</span><span class="tag">JSON Tree</span>
+      </div></div>
+      <div class="phase"><div class="pnum">P2<br>好讀</div><div class="pbody">
+        <h4>分析 — Inspector 與型別推測</h4>
+        <div class="goal">交付：Request Inspector、Response Analyzer、URL/Query/Body 拆解、欄位型別推測</div>
+        <span class="tag">參數拆解</span><span class="tag">schema 推測</span>
+      </div></div>
+      <div class="phase"><div class="pnum">P3<br>好整理</div><div class="pbody">
+        <h4>沉澱 — Diff、文件、DTO</h4>
+        <div class="goal">交付：History、Response Diff、Markdown 文件產生、DTO / TS Interface 產生</div>
+        <span class="tag">deep-diff</span><span class="tag">文件產生</span><span class="tag">DTO 草稿</span>
+      </div></div>
+      <div class="phase"><div class="pnum">P4<br>自動化</div><div class="pbody">
+        <h4>流程 — Flow Runner 與 CLI</h4>
+        <div class="goal">交付：Flow Runner、Token Extractor、Assertion、Batch Run、HTML Report、CLI</div>
+        <span class="tag">變數串接</span><span class="tag">斷言</span><span class="tag">CLI</span>
+      </div></div>
+      <div class="phase"><div class="pnum">P5<br>AI 友善</div><div class="pbody">
+        <h4>智能 — Prompt Export 與沉澱護欄</h4>
+        <div class="goal">交付：Prompt Export、Controller/DTO/Test 生成輔助、Level 1 審核沉澱</div>
+        <span class="tag">prompt 匯出</span><span class="tag">審核沉澱</span>
+      </div></div>
+      <div class="warnbox">每階段結束皆為可獨立使用的版本。天城建議完成 P1 後實際試用，再依手感微調後續細節。</div>
+    </section>
+
+    <section id="risk">
+      <h2>15. 風險與對策 <span class="src a">VELA</span><span class="src b">APILENS</span></h2>
+      <table>
+        <tr><th>風險</th><th>對策</th></tr>
+        <tr><td>Rust 學習曲線（老爺主力為 Java/Angular）</td><td>後端範圍刻意收斂——多為「收參數→發請求→回 JSON」樣板，天城提供完整骨架與註解，漸進熟悉</td></tr>
+        <tr><td>範圍過大（追 Postman 全功能）</td><td>嚴守「拆解＋分析＋自動化」主軸，其餘夠用即止</td></tr>
+        <tr><td>HTTP 細節繁多（Auth/Cookie/Redirect/TLS/Multipart）</td><td>分階段支援，v0.1 不全做</td></tr>
+        <tr><td>YAML schema 早期不穩</td><td>保留 <code>version</code> 欄位與 schema validator，預留 migration</td></tr>
+        <tr><td>機密（token/密碼）明文存檔</td><td>敏感值標記、排除 Git（.gitignore），日後接系統金鑰庫</td></tr>
+        <tr><td>AI 功能過早介入</td><td>先做 Prompt Export，模型串接後置；沉澱採 Level 1 審核</td></tr>
+        <tr><td>Tauri 2 生態較新</td><td>核心走穩定 API；不確定處先最小可行驗證</td></tr>
+      </table>
+    </section>
+
+    <section id="next">
+      <h2>16. 下一步</h2>
+      <p>本定稿已整合三份草案精華，可直接據以開工。天城建議的起手式：</p>
+      <ol>
+        <li>確認專案名稱（本稿採 <b>ApiLens</b>，命名分析見原 ApiLens 草案；亦可沿用 Vela）。</li>
+        <li>偵察並備妥環境：Node.js、Rust toolchain、Tauri CLI。</li>
+        <li>建立 <b>P1</b> 骨架——可送請求、可看回應，先讓老爺摸到實物。</li>
+      </ol>
+      <div class="note">老爺若對任何章節有增刪修正——技術選型、功能取捨、儲存格式、命名——請儘管吩咐，天城即刻調整本定稿，待方向底定再動工。</div>
+      <p class="creed">主の命こそ秩序、秩序こそ美。<br>—— 天城 AMAGI</p>
+    </section>
+
+    <footer>
+      ApiLens · 整合開發定稿 v1 · 整合自 Vela / ApiLens / Agent Console 三份草案 · 整理：天城（AMAGI）· 2026-06-03<br>
+      本文件為自包含 HTML，無外部依賴，可離線於任何瀏覽器開啟，亦支援列印。
+    </footer>
+  </main>
+</div>
+<script>
+  const links=[...document.querySelectorAll('nav.side a')];
+  const map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){
+    links.forEach(l=>l.classList.remove('active'));
+    const a=map.get(e.target.id); if(a)a.classList.add('active');}});},
+    {rootMargin:'-20% 0px -70% 0px',threshold:0});
+  document.querySelectorAll('section[id]').forEach(s=>obs.observe(s));
+</script>
+</body>
+</html>

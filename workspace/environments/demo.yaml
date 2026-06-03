@@ -1,0 +1,5 @@
+name: demo
+variables:
+  baseUrl: "https://httpbin.org"
+  token: "demo-token-123"     # 此為公開示範用，非真實機密
+  userId: "42"

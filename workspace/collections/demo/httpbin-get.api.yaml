@@ -1,0 +1,12 @@
+version: 1
+id: httpbin-get
+name: Demo · httpbin GET
+method: GET
+url: "https://httpbin.org/anything"
+query:
+  hello: "reqmira"
+  page: "1"
+docs:
+  tags:
+    - Demo
+  description: 可直接送出的範例請求（需連網），用於初次體驗發送與回應檢視。

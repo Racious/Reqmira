@@ -1,0 +1,6 @@
+name: local
+variables:
+  baseUrl: "http://localhost:8080"
+  token: ""          # 機密：請勿提交至 Git
+  password: ""       # 機密：請勿提交至 Git
+  userId: "1001"

@@ -1,0 +1,18 @@
+version: 1
+id: login
+name: 登入
+method: POST
+url: "{{baseUrl}}/api/auth/login"
+headers:
+  Content-Type: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "account": "admin",
+      "password": "{{password}}"
+    }
+docs:
+  tags:
+    - Auth
+  description: 以帳號密碼登入，取得 access token。

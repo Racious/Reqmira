@@ -1,0 +1,15 @@
+version: 1
+id: get-user
+name: 查詢使用者
+method: GET
+url: "{{baseUrl}}/api/users/{userId}"
+headers:
+  Authorization: "Bearer {{token}}"
+  Accept: "application/json"
+query:
+  includeRole: "true"
+docs:
+  tags:
+    - User
+    - Query
+  description: 依 userId 查詢單一使用者，可選擇是否帶出角色。

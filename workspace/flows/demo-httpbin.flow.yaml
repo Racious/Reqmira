@@ -1,0 +1,19 @@
+version: 1
+id: demo-httpbin
+name: Demo · httpbin 兩步流程
+description: >-
+  可實跑的示範流程（請先將環境切到 demo）。第一步取得錨點並抽取回顯的 URL，
+  第二步帶變數查詢並斷言。展示變數抽取與斷言。
+steps:
+  - name: 取得錨點
+    request: collections/demo/httpbin-get.api.yaml
+    extract:
+      echoedUrl: "$.url"          # httpbin 回顯請求 URL
+    assert:
+      status: 200
+
+  - name: 帶變數查詢
+    request: collections/demo/httpbin-with-vars.api.yaml
+    assert:
+      status: 200
+      json.method: "GET"          # httpbin 回顯 method

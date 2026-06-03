@@ -1,0 +1,132 @@
+/* Reqmira 全域樣式 — 暗色主題，承襲定稿視覺。 */
+:root {
+  --bg: #0b0f17;
+  --bg-soft: #111725;
+  --panel: #141b2b;
+  --panel-2: #18233d;
+  --border: #26304a;
+  --fg: #e6ecf5;
+  --fg-dim: #9aa7bd;
+  --fg-faint: #64718c;
+  --accent: #38bdf8;
+  --accent-2: #d8b46a;
+  --accent-3: #a78bfa;
+  --good: #5fd38d;
+  --bad: #e5778a;
+  --warn: #e0b15a;
+  --code-bg: #0b1020;
+  --mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --sans: "Segoe UI", "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--fg);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  transition: 0.15s;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent-3));
+  color: #06111f;
+  border: none;
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) {
+  color: #06111f;
+  filter: brightness(1.08);
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  background: var(--code-bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+}
+textarea {
+  font-family: var(--mono);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #26304a;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* HTTP method 色票 */
+.m-get {
+  color: var(--good);
+}
+.m-post {
+  color: var(--accent);
+}
+.m-put {
+  color: var(--accent-2);
+}
+.m-patch {
+  color: var(--accent-3);
+}
+.m-delete {
+  color: var(--bad);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+.dim {
+  color: var(--fg-dim);
+}
+.faint {
+  color: var(--fg-faint);
+}

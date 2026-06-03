@@ -1,0 +1,5 @@
+{
+  "name": "Reqmira 範例工作區",
+  "version": 1,
+  "description": "示範用 workspace：登入、查詢/建立使用者，及一個可實際送出的 demo 請求。"
+}

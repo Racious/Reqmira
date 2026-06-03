@@ -1,0 +1,15 @@
+version: 1
+id: httpbin-vars
+name: Demo · 環境變數示範
+method: GET
+url: "{{baseUrl}}/anything/{{userId}}"
+headers:
+  Authorization: "Bearer {{token}}"
+query:
+  from: "reqmira"
+docs:
+  tags:
+    - Demo
+  description: >-
+    請先將頂列環境切到 demo，再送出。httpbin 會原樣回顯，
+    可清楚看到 {{baseUrl}}、{{userId}}、{{token}} 三個變數皆已被代入。

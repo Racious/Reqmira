@@ -1,0 +1,25 @@
+version: 1
+id: create-user
+name: 建立使用者
+method: POST
+url: "{{baseUrl}}/api/users"
+headers:
+  Authorization: "Bearer {{token}}"
+  Content-Type: "application/json"
+body:
+  type: json
+  content: |-
+    {
+      "name": "Alice",
+      "age": 30,
+      "active": true,
+      "roles": ["admin", "user"],
+      "profile": {
+        "city": "Taipei",
+        "zip": 100
+      }
+    }
+docs:
+  tags:
+    - User
+  description: 建立新使用者，示範 Inspector 的 JSON Body schema 推測。

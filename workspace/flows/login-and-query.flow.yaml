@@ -1,0 +1,21 @@
+version: 1
+id: login-and-query
+name: 登入並查詢使用者
+description: >-
+  典型範式：先登入取得 token，抽取後注入查詢請求。需在 local 環境且後端服務運行才會通過，
+  此處示範 token 串接寫法。
+steps:
+  - name: 登入
+    request: collections/auth/login.api.yaml
+    extract:
+      token: "$.data.access_token"   # 抽取 token → 後續以 {{token}} 注入
+    assert:
+      status: 200
+
+  - name: 查詢使用者
+    request: collections/users/get-user.api.yaml
+    variables:
+      userId: "1001"
+    assert:
+      status: 200
+      json.code: "0000"

@@ -1,0 +1,6 @@
+name: dev
+variables:
+  baseUrl: "https://dev.example.com"
+  token: ""
+  password: ""
+  userId: "1001"

@@ -1,0 +1,38 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Rust / Tauri build output
+src-tauri/target
+src-tauri/gen
+
+# CI 產物
+release-body.md
+
+# icon 來源圖（已由 tauri icon 生成 src-tauri/icons/，原圖不需進版控）
+ChatGPT Image*.png
+
+# Reqmira：機密環境檔（含 token / 密碼）。範例環境檔保留結構但值留空。
+# 若要將工作區進 Git，請改用此規則排除含機密的環境檔，例如：
+# workspace/environments/*.secret.yaml
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
