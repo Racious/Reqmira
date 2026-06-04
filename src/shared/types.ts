@@ -62,6 +62,8 @@ export interface SendRequest {
   query: KeyValue[];
   body?: string | null;
   bodyType?: string | null;
+  /** 略過 TLS 憑證驗證（自簽憑證的內網設備用）。預設 false。 */
+  insecure?: boolean;
 }
 
 export interface HttpResponse {
@@ -73,6 +75,8 @@ export interface HttpResponse {
   sizeBytes: number;
   contentType?: string | null;
   finalUrl: string;
+  /** 前端專用：此回應 body 為節省 localStorage 而被截斷儲存（重開後載入的舊大紀錄）。 */
+  truncated?: boolean;
 }
 
 // ── Flow ──

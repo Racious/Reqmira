@@ -267,6 +267,8 @@ function formatBody() {
   color: var(--bad);
   font-size: 12.5px;
   margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .empty-state {
   height: 100%;

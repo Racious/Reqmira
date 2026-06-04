@@ -7,6 +7,7 @@ import { ref } from "vue";
 import * as api from "../api";
 import { getByPath } from "../jsonpath";
 import { useWorkspaceStore } from "./workspace";
+import { useSettingsStore } from "./settings";
 import type {
   AssertResult,
   FlowSpec,
@@ -86,6 +87,7 @@ export const useFlowRunnerStore = defineStore("flowRunner", () => {
         try {
           const spec = await api.loadRequest(ws.root, step.request);
           const send = specToSend(spec);
+          send.insecure = useSettingsStore().insecureSkipTlsVerify;
           const variables = { ...ws.activeVariables, ...runtime, ...(step.variables ?? {}) };
           const resp = await api.sendRequest(send, variables);
 

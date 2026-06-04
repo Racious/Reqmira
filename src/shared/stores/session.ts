@@ -5,7 +5,8 @@ import { ref, computed } from "vue";
 import * as api from "../api";
 import type { BodyType, HttpResponse, KeyValue, RequestSpec, SendRequest } from "../types";
 import { useWorkspaceStore } from "./workspace";
-import { useHistoryStore } from "./history";
+import { useHistoryStore, type HistoryRequest } from "./history";
+import { useSettingsStore } from "./settings";
 
 /** 編輯期的可變草稿（鍵值以陣列呈現，便於 UI 增刪與勾選）。 */
 export interface RequestDraft {
@@ -89,6 +90,8 @@ export const useSessionStore = defineStore("session", () => {
   const response = ref<HttpResponse | null>(null);
   // 目前顯示的回應對應的 History 紀錄 id（用於將「設為基準」關聯到該紀錄）。
   const currentEntryId = ref<string>("");
+  // 目前檢視之歷史紀錄當時送出的請求（供「重新送出」用；無則為 null）。
+  const viewedRequest = ref<HistoryRequest | null>(null);
   const sending = ref(false);
   const sendError = ref<string>("");
   const saveError = ref<string>("");
@@ -171,13 +174,26 @@ export const useSessionStore = defineStore("session", () => {
         query: draft.value.query,
         body: draft.value.bodyContent,
         bodyType: draft.value.bodyType,
+        insecure: useSettingsStore().insecureSkipTlsVerify,
       };
       const resp = await api.sendRequest(payload, ws.activeVariables);
       response.value = resp;
+      // 保留當次送出的請求快照（深拷貝鍵值陣列，避免日後編輯草稿時連動竄改歷史）。
+      const reqSnapshot: HistoryRequest = {
+        name: draft.value.name,
+        method: draft.value.method,
+        url: draft.value.url,
+        headers: draft.value.headers.map((kv) => ({ ...kv })),
+        query: draft.value.query.map((kv) => ({ ...kv })),
+        bodyType: draft.value.bodyType,
+        bodyContent: draft.value.bodyContent,
+      };
+      viewedRequest.value = reqSnapshot;
       currentEntryId.value = useHistoryStore().add(
         draft.value.name || draft.value.id,
         draft.value.method,
         resp,
+        reqSnapshot,
       );
     } catch (e) {
       sendError.value = String(e);
@@ -186,11 +202,37 @@ export const useSessionStore = defineStore("session", () => {
     }
   }
 
-  /** 顯示一筆歷史回應（不重新送出）。entryId 為該回應對應的 History id。 */
-  function showResponse(resp: HttpResponse, entryId = "") {
+  /** 從歷史紀錄載入當次送出的請求到編輯器（不自動送出、不覆寫回應）。 */
+  function loadHistoryRequest(req: HistoryRequest) {
+    draft.value = {
+      id: "history-request",
+      name: req.name || "歷史請求",
+      method: req.method,
+      url: req.url,
+      headers: req.headers.map((kv) => ({ ...kv })),
+      query: req.query.map((kv) => ({ ...kv })),
+      bodyType: req.bodyType,
+      bodyContent: req.bodyContent,
+    };
+    activePath.value = "";
+    sendError.value = "";
+    saveError.value = "";
+    markSaved();
+  }
+
+  /** 顯示一筆歷史回應（不重新送出）。entryId 為該回應對應的 History id，
+   *  request 為該筆當時送出的請求（供截斷提示的「重新送出」用）。 */
+  function showResponse(resp: HttpResponse, entryId = "", request: HistoryRequest | null = null) {
     response.value = resp;
     currentEntryId.value = entryId;
+    viewedRequest.value = request;
     sendError.value = "";
+  }
+
+  /** 載入指定請求並立即送出（截斷的舊紀錄一鍵取回完整回應）。 */
+  async function resendRequest(req: HistoryRequest) {
+    loadHistoryRequest(req);
+    await send();
   }
 
   /** 設定 Diff 比較基準；傳 null 清除。 */
@@ -237,6 +279,9 @@ export const useSessionStore = defineStore("session", () => {
     send,
     save,
     showResponse,
+    loadHistoryRequest,
+    resendRequest,
+    viewedRequest,
     setCompareBase,
   };
 });

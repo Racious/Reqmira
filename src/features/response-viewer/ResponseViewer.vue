@@ -6,12 +6,22 @@ import SchemaTree from "../../shared/components/SchemaTree.vue";
 import CodeGenPanel from "../../shared/components/CodeGenPanel.vue";
 import { inferValue } from "../../shared/analyze";
 import { diffJson } from "../../shared/api";
-import type { DiffEntry, DiffKind } from "../../shared/types";
+import type { DiffEntry, DiffKind, KeyValue } from "../../shared/types";
 
 const session = useSessionStore();
 
-type Tab = "pretty" | "schema" | "codegen" | "diff" | "raw" | "headers";
+type Tab = "pretty" | "schema" | "codegen" | "diff" | "raw" | "headers" | "request";
 const tab = ref<Tab>("pretty");
+
+/** 截斷的舊紀錄：一鍵重送當時的請求以取回完整回應。 */
+function resendViewed() {
+  if (session.viewedRequest) session.resendRequest(session.viewedRequest);
+}
+
+/** 取啟用且有 key 的鍵值（供「請求」分頁顯示）。 */
+function enabledKv(list: KeyValue[]) {
+  return list.filter((k) => k.enabled && k.key.trim());
+}
 
 // ── Diff ──
 const diffEntries = ref<DiffEntry[]>([]);
@@ -162,7 +172,26 @@ function fmtSize(bytes: number) {
         <button class="tab" :class="{ on: tab === 'headers' }" @click="tab = 'headers'">
           Headers <span class="cnt">{{ session.response.headers.length }}</span>
         </button>
+        <button
+          v-if="session.viewedRequest"
+          class="tab"
+          :class="{ on: tab === 'request' }"
+          @click="tab = 'request'"
+        >
+          請求
+        </button>
       </div>
+    </div>
+
+    <div v-if="session.response?.truncated" class="trunchint">
+      ⚠ 此紀錄回應過大，儲存時已截斷（僅保留前約 100 KB），無法完整解析。
+      <template v-if="session.viewedRequest">
+        <button class="linkbtn" :disabled="session.sending" @click="resendViewed">
+          {{ session.sending ? "送出中…" : "重新送出此請求" }}
+        </button>
+        以取得完整內容。
+      </template>
+      <template v-else>請重新送出以檢視完整內容。</template>
     </div>
 
     <div v-if="session.response && isLarge && tab !== 'raw'" class="largehint">
@@ -216,6 +245,44 @@ function fmtSize(bytes: number) {
         </template>
       </div>
       <pre v-else-if="tab === 'raw'" class="raw">{{ session.response.body }}</pre>
+      <div v-else-if="tab === 'request'" class="reqview">
+        <template v-if="session.viewedRequest">
+          <div class="rv-line">
+            <span class="rv-method mono">{{ session.viewedRequest.method }}</span>
+            <span class="rv-url mono">{{ session.viewedRequest.url }}</span>
+          </div>
+          <div v-if="enabledKv(session.viewedRequest.query).length" class="rv-block">
+            <h5>Query</h5>
+            <table class="kvtab">
+              <tbody>
+                <tr v-for="(kv, i) in enabledKv(session.viewedRequest.query)" :key="`q${i}`">
+                  <td class="kvk mono">{{ kv.key }}</td>
+                  <td class="kvv mono">{{ kv.value }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-if="enabledKv(session.viewedRequest.headers).length" class="rv-block">
+            <h5>Headers</h5>
+            <table class="kvtab">
+              <tbody>
+                <tr v-for="(kv, i) in enabledKv(session.viewedRequest.headers)" :key="`h${i}`">
+                  <td class="kvk mono">{{ kv.key }}</td>
+                  <td class="kvv mono">{{ kv.value }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            v-if="session.viewedRequest.bodyType !== 'none' && session.viewedRequest.bodyContent.trim()"
+            class="rv-block"
+          >
+            <h5>Body <span class="faint">（{{ session.viewedRequest.bodyType }}）</span></h5>
+            <pre class="raw">{{ session.viewedRequest.bodyContent }}</pre>
+          </div>
+        </template>
+        <p v-else class="faint">此紀錄未保存請求內容（更新前送出的舊紀錄）。</p>
+      </div>
       <table v-else class="hdr">
         <tbody>
           <tr v-for="([k, v], i) in session.response.headers" :key="i">
@@ -241,7 +308,8 @@ function fmtSize(bytes: number) {
 .resp-head {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-soft);
@@ -270,13 +338,27 @@ function fmtSize(bytes: number) {
 }
 .ct {
   font-size: 11.5px;
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 .spacer {
-  flex: 1;
+  flex: 1 1 16px;
+}
+.meta {
+  white-space: nowrap;
 }
 .tabs {
   display: flex;
   gap: 2px;
+  flex-wrap: wrap;
+  flex: none;
+}
+.tab {
+  white-space: nowrap;
 }
 .tab {
   background: none;
@@ -322,9 +404,14 @@ function fmtSize(bytes: number) {
 .baseind {
   font-size: 11px;
   color: var(--accent-2);
-  max-width: 240px;
+  max-width: 190px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.basebtn {
+  flex: none;
   white-space: nowrap;
 }
 .clrbase {
@@ -420,12 +507,65 @@ function fmtSize(bytes: number) {
   background: rgba(224, 177, 90, 0.08);
   border-bottom: 1px solid var(--border);
 }
+.trunchint {
+  padding: 7px 16px;
+  font-size: 12px;
+  color: var(--bad);
+  background: rgba(248, 113, 113, 0.09);
+  border-bottom: 1px solid var(--border);
+  line-height: 1.6;
+}
 .linkbtn {
   background: none;
   border: none;
   color: var(--accent);
   padding: 0 2px;
   text-decoration: underline;
+}
+.reqview {
+  font-size: 12.5px;
+}
+.rv-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.rv-method {
+  font-weight: 700;
+  color: var(--accent);
+}
+.rv-url {
+  color: var(--fg);
+  word-break: break-all;
+}
+.rv-block {
+  margin-bottom: 14px;
+}
+.rv-block h5 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-dim);
+}
+.kvtab {
+  width: 100%;
+  border-collapse: collapse;
+}
+.kvtab td {
+  border-bottom: 1px solid var(--border);
+  padding: 3px 8px;
+  vertical-align: top;
+  word-break: break-all;
+}
+.kvk {
+  color: var(--accent);
+  width: 40%;
+}
+.kvv {
+  color: var(--fg-dim);
 }
 .hdr {
   width: 100%;
