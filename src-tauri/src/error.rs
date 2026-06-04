@@ -32,7 +32,21 @@ impl From<serde_yaml::Error> for AppError {
 
 impl From<reqwest::Error> for AppError {
     fn from(e: reqwest::Error) -> Self {
-        AppError::Http(e.to_string())
+        // reqwest 的頂層訊息常只說「error sending request」，真因藏在 source chain
+        // （如 invalid certificate / connection refused）。逐層串接，讓使用者看得到病灶。
+        use std::error::Error;
+        let mut msg = e.to_string();
+        let mut src = e.source();
+        while let Some(cause) = src {
+            let detail = cause.to_string();
+            // 避免重複串接相同片段
+            if !msg.contains(&detail) {
+                msg.push_str("：");
+                msg.push_str(&detail);
+            }
+            src = cause.source();
+        }
+        AppError::Http(msg)
     }
 }
 

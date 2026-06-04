@@ -108,6 +108,9 @@ pub struct SendRequest {
     /// json / text / form / none
     #[serde(default)]
     pub body_type: Option<String>,
+    /// 略過 TLS 憑證驗證（自簽憑證的內網設備用）。預設 false，維持嚴格驗證。
+    #[serde(default)]
+    pub insecure: bool,
 }
 
 /// 回傳給前端的回應資料。

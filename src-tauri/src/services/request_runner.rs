@@ -13,15 +13,27 @@ use crate::models::{HttpResponse, SendRequest};
 use crate::services::variable_resolver::resolve;
 
 /// 重用單一 reqwest Client，複用連線池與 TLS session，避免每次發送都重建。
+/// 此 client 嚴格驗證 TLS 憑證（預設行為）。
 fn shared_client() -> &'static reqwest::Client {
     static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
-    CLIENT.get_or_init(|| {
-        reqwest::Client::builder()
-            .user_agent("Reqmira/0.1")
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .expect("建立 HTTP client 失敗")
-    })
+    CLIENT.get_or_init(|| build_client(false))
+}
+
+/// 略過 TLS 憑證驗證的 client（自簽憑證的內網設備用）。
+/// 仍走 HTTPS 加密，僅不驗證對端身分——失去 MITM 防護，故僅供使用者明示開啟。
+fn insecure_client() -> &'static reqwest::Client {
+    static CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+    CLIENT.get_or_init(|| build_client(true))
+}
+
+fn build_client(insecure: bool) -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent("Reqmira/0.1")
+        .timeout(std::time::Duration::from_secs(30))
+        // rustls 路徑下，此旗標會連同主機名驗證一併關閉，足以應付自簽憑證。
+        .danger_accept_invalid_certs(insecure)
+        .build()
+        .expect("建立 HTTP client 失敗")
 }
 
 /// 解析變數 → 拼接 query → 發送 → 收集回應。
@@ -42,7 +54,8 @@ pub async fn send(req: SendRequest, vars: &IndexMap<String, String>) -> AppResul
         .map(|kv| (resolve(&kv.key, vars), resolve(&kv.value, vars)))
         .collect();
 
-    let mut builder = shared_client().request(method, &url);
+    let client = if req.insecure { insecure_client() } else { shared_client() };
+    let mut builder = client.request(method, &url);
 
     if !query_pairs.is_empty() {
         builder = builder.query(&query_pairs);
@@ -73,7 +86,10 @@ pub async fn send(req: SendRequest, vars: &IndexMap<String, String>) -> AppResul
 
     // 5. 發送並計時
     let started = Instant::now();
-    let resp = builder.send().await?;
+    let resp = builder
+        .send()
+        .await
+        .map_err(|e| augment_tls_hint(AppError::from(e), req.insecure))?;
     let status = resp.status();
     let status_text = status
         .canonical_reason()
@@ -117,6 +133,30 @@ fn parse_method(m: &str) -> AppResult<Method> {
         .map_err(|_| AppError::Invalid(format!("不支援的 HTTP 方法：{m}")))
 }
 
+/// 若為 TLS / 憑證類連線錯誤，附上「簡述原因 + 應對方法」的提示。
+/// 依是否已略過驗證，給予不同建議。
+fn augment_tls_hint(err: AppError, insecure: bool) -> AppError {
+    let msg = match err {
+        AppError::Http(m) => m,
+        other => return other,
+    };
+    let low = msg.to_lowercase();
+    let cert_related = low.contains("certificate")
+        || low.contains("certversion")
+        || low.contains("handshake")
+        || low.contains("self-signed")
+        || low.contains("self signed");
+    if !cert_related {
+        return AppError::Http(msg);
+    }
+    let hint = if insecure {
+        "對方憑證格式過舊或不合規範，連「略過驗證」都無法解析（rustls 較嚴格）。此設備可能需改用 native-tls 後端才能連線。"
+    } else {
+        "對方可能使用自簽或老舊的 TLS 憑證。若這是您信任的內網設備，請於頂列開啟「略過 SSL 驗證」後重試。"
+    };
+    AppError::Http(format!("{msg}\n\n💡 {hint}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -124,6 +164,31 @@ mod tests {
 
     fn kv(key: &str, value: &str) -> KeyValue {
         KeyValue { key: key.into(), value: value.into(), enabled: true }
+    }
+
+    #[test]
+    fn tls_hint_appends_for_cert_errors_only() {
+        // 憑證錯誤：應附上提示
+        let e = augment_tls_hint(
+            AppError::Http("invalid peer certificate: UnsupportedCertVersion".into()),
+            false,
+        );
+        let AppError::Http(msg) = e else { panic!("應為 Http") };
+        assert!(msg.contains("💡"), "憑證錯誤應附提示");
+        assert!(msg.contains("略過 SSL 驗證"), "未略過時應建議開啟略過");
+
+        // 已略過驗證：提示內容不同
+        let e2 = augment_tls_hint(
+            AppError::Http("invalid peer certificate: UnsupportedCertVersion".into()),
+            true,
+        );
+        let AppError::Http(msg2) = e2 else { panic!("應為 Http") };
+        assert!(msg2.contains("native-tls"), "已略過仍失敗時應提示換後端");
+
+        // 非憑證錯誤：原樣返回，不加提示
+        let e3 = augment_tls_hint(AppError::Http("connection refused".into()), false);
+        let AppError::Http(msg3) = e3 else { panic!("應為 Http") };
+        assert!(!msg3.contains("💡"), "非憑證錯誤不應附提示");
     }
 
     #[test]
@@ -144,6 +209,7 @@ mod tests {
             query: vec![],
             body: None,
             body_type: None,
+            insecure: false,
         };
         let res = send(req, &IndexMap::new()).await;
         assert!(res.is_err(), "空 URL 應在送出前就回錯");
@@ -165,6 +231,7 @@ mod tests {
             query: vec![kv("page", "1"), kv("q", "reqmira")],
             body: None,
             body_type: None,
+            insecure: false,
         };
 
         let resp = send(req, &vars).await.expect("請求應成功");
