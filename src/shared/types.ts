@@ -14,6 +14,19 @@ export interface DocsSpec {
   description?: string;
 }
 
+export type AuthType = "none" | "bearer" | "basic" | "apikey";
+
+/** 認證設定；送出時組成對應 header/query。 */
+export interface AuthSpec {
+  type: AuthType;
+  token?: string; // bearer
+  username?: string; // basic
+  password?: string; // basic
+  key?: string; // apikey 名稱
+  value?: string; // apikey 值
+  addTo?: "header" | "query"; // apikey 放置位置，預設 header
+}
+
 /** 持久化的 request 定義，對應 *.api.yaml */
 export interface RequestSpec {
   version: number;
@@ -24,6 +37,7 @@ export interface RequestSpec {
   headers?: Record<string, string>;
   query?: Record<string, string>;
   body?: BodySpec | null;
+  auth?: AuthSpec | null;
   docs?: DocsSpec | null;
 }
 

@@ -14,6 +14,9 @@ import FlowRunner from "./features/runner/FlowRunner.vue";
 import ImportCurl from "./features/requests/ImportCurl.vue";
 import DialogHost from "./shared/components/DialogHost.vue";
 import ContextMenuHost from "./shared/components/ContextMenuHost.vue";
+import EnvironmentEditor from "./features/environments/EnvironmentEditor.vue";
+import CommandPalette from "./features/palette/CommandPalette.vue";
+import ImportSpec from "./features/requests/ImportSpec.vue";
 import SettingsMenu from "./shared/components/SettingsMenu.vue";
 import { PANEL_MIN, PANEL_MAX } from "./shared/stores/settings";
 import { useContextMenu, type MenuItem } from "./shared/contextMenu";
@@ -33,6 +36,9 @@ const actions = useCollectionActions();
 const tree = useTree();
 
 const showCurl = ref(false);
+const showImportSpec = ref(false);
+const showEnvEditor = ref(false);
+const showPalette = ref(false);
 
 // 歷史紀錄改名（雙擊名稱進入編輯）。
 const editingId = ref("");
@@ -68,22 +74,35 @@ function rootAddMenu(e: MouseEvent) {
   openMenu(e, items);
 }
 
-// ── 側欄 / 檢視器拖曳調寬 ──
-let dragTarget: "sidebar" | "inspector" | null = null;
+// ── 側欄 / 檢視器拖曳調寬、中欄分隔調比例 ──
+let dragTarget: "sidebar" | "inspector" | "center" | null = null;
 let dragStartX = 0;
 let dragStartW = 0;
+const centerEl = ref<HTMLElement | null>(null);
 
-function startDrag(target: "sidebar" | "inspector", e: PointerEvent) {
+function startDrag(target: "sidebar" | "inspector" | "center", e: PointerEvent) {
   dragTarget = target;
   dragStartX = e.clientX;
   dragStartW = target === "sidebar" ? settings.sidebarWidth : settings.inspectorWidth;
   window.addEventListener("pointermove", onDrag);
   window.addEventListener("pointerup", endDrag);
-  document.body.style.cursor = "col-resize";
+  document.body.style.cursor =
+    target === "center" ? (settings.centerLayout === "vertical" ? "row-resize" : "col-resize") : "col-resize";
   document.body.style.userSelect = "none";
 }
 function onDrag(e: PointerEvent) {
   if (!dragTarget) return;
+  if (dragTarget === "center") {
+    const el = centerEl.value;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const pct =
+      settings.centerLayout === "vertical"
+        ? ((e.clientY - r.top) / r.height) * 100
+        : ((e.clientX - r.left) / r.width) * 100;
+    settings.centerSplit = Math.min(85, Math.max(15, pct));
+    return;
+  }
   const dx = e.clientX - dragStartX;
   // 側欄往右拖變寬；檢視器往左拖變寬（故取反）。
   const delta = dragTarget === "sidebar" ? dx : -dx;
@@ -103,7 +122,10 @@ function endDrag() {
 function onKey(e: KeyboardEvent) {
   const mod = e.ctrlKey || e.metaKey;
   if (!mod) return;
-  if (e.key === "Enter") {
+  if (e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    showPalette.value = true;
+  } else if (e.key === "Enter") {
     if (session.draft && session.draft.url.trim() && !session.sending) {
       e.preventDefault();
       session.send();
@@ -175,6 +197,7 @@ onMounted(() => {
           <option v-for="e in ws.environments" :key="e.name" :value="e.name">{{ e.name }}</option>
         </select>
       </label>
+      <button v-if="ws.hasWorkspace" class="icon" title="編輯環境變數" @click="showEnvEditor = true">⚙ 環境</button>
       <label
         class="tlssel"
         :class="{ on: settings.insecureSkipTlsVerify }"
@@ -185,7 +208,21 @@ onMounted(() => {
         <input type="checkbox" v-model="settings.insecureSkipTlsVerify" />
         <span>{{ settings.insecureSkipTlsVerify ? "⚠ 略過 SSL 驗證" : "略過 SSL 驗證" }}</span>
       </label>
-      <button @click="showCurl = true">⤓ 匯入 curl</button>
+      <button @click="showCurl = true">⤓ curl</button>
+      <button @click="showImportSpec = true" title="匯入 OpenAPI / Postman">⤓ API</button>
+      <div class="panes" title="顯示/收合面板">
+        <button class="pane-t" :class="{ on: !settings.sidebarCollapsed }" @click="settings.sidebarCollapsed = !settings.sidebarCollapsed">樹</button>
+        <button class="pane-t" :class="{ on: !settings.editorCollapsed }" @click="settings.toggleEditor()">Req</button>
+        <button class="pane-t" :class="{ on: !settings.respCollapsed }" @click="settings.toggleResp()">Res</button>
+        <button class="pane-t" :class="{ on: !settings.inspectorCollapsed }" @click="settings.inspectorCollapsed = !settings.inspectorCollapsed">Insp</button>
+      </div>
+      <button
+        class="icon"
+        :title="settings.centerLayout === 'vertical' ? '切換為左右並排' : '切換為上下排列'"
+        @click="settings.toggleCenterLayout()"
+      >
+        {{ settings.centerLayout === "vertical" ? "⇆" : "⇅" }}
+      </button>
       <SettingsMenu />
       <button class="primary" @click="session.newRequest()">＋ 新請求</button>
     </header>
@@ -306,12 +343,24 @@ onMounted(() => {
         @dblclick="settings.sidebarCollapsed = true"
       />
 
-      <!-- 中：Editor + Response -->
-      <main class="center">
-        <div class="editor-pane">
+      <!-- 中：Editor + Response（可上下／左右切換、分隔可拖） -->
+      <main ref="centerEl" class="center" :class="settings.centerLayout">
+        <div
+          v-if="!settings.editorCollapsed"
+          class="editor-pane"
+          :style="{ flex: settings.respCollapsed ? '1 1 0' : `0 0 ${settings.centerSplit}%` }"
+        >
           <RequestEditor />
         </div>
-        <div class="resp-pane">
+        <div
+          v-if="!settings.editorCollapsed && !settings.respCollapsed"
+          class="center-split"
+          :class="settings.centerLayout"
+          title="拖曳調整 Request / Response 比例（雙擊重設）"
+          @pointerdown="startDrag('center', $event)"
+          @dblclick="settings.centerSplit = 55"
+        />
+        <div v-if="!settings.respCollapsed" class="resp-pane">
           <ResponseViewer />
         </div>
       </main>
@@ -338,6 +387,15 @@ onMounted(() => {
 
     <!-- 匯入 curl 模態 -->
     <ImportCurl v-if="showCurl" @close="showCurl = false" />
+
+    <!-- 環境編輯模態 -->
+    <EnvironmentEditor v-if="showEnvEditor" @close="showEnvEditor = false" />
+
+    <!-- 命令面板 -->
+    <CommandPalette v-if="showPalette" @close="showPalette = false" />
+
+    <!-- 匯入 OpenAPI / Postman -->
+    <ImportSpec v-if="showImportSpec" @close="showImportSpec = false" />
 
     <!-- 全域 toast 反饋 -->
     <Transition name="toast">
@@ -492,6 +550,21 @@ onMounted(() => {
   padding: 1px 8px;
   border-radius: 6px;
 }
+.panes {
+  display: flex;
+  gap: 2px;
+}
+.pane-t {
+  font-size: 11px;
+  padding: 3px 8px;
+  color: var(--fg-faint);
+  border-color: var(--border);
+}
+.pane-t.on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+}
 .hint {
   font-size: 12px;
   padding: 8px 4px;
@@ -628,18 +701,40 @@ onMounted(() => {
 .center {
   flex: 1 1 0;
   display: flex;
-  flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
+.center.vertical {
+  flex-direction: column;
+}
+.center.horizontal {
+  flex-direction: row;
+}
 .editor-pane {
-  flex: 1 1 55%;
+  min-width: 0;
   min-height: 0;
-  border-bottom: 1px solid var(--border);
 }
 .resp-pane {
-  flex: 1 1 45%;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
+}
+/* 可拖曳的中欄分隔線 */
+.center-split {
+  flex: none;
+  background: var(--border);
+  transition: background 0.12s;
+}
+.center-split:hover {
+  background: var(--accent);
+}
+.center-split.vertical {
+  height: 5px;
+  cursor: row-resize;
+}
+.center-split.horizontal {
+  width: 5px;
+  cursor: col-resize;
 }
 .inspector-col {
   flex: 0 0 auto;

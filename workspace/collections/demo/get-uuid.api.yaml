@@ -1,0 +1,11 @@
+version: 1
+id: getuuid
+name: Demo · 取得 UUID（先送這支）
+method: GET
+url: "{{baseUrl}}/uuid"
+docs:
+  tags:
+    - Demo
+  description: >-
+    httpbin 會回 {"uuid":"...."}。送出後，這支的回應會被記住，
+    供另一支用 {{responses.getuuid.uuid}} 引用。它的「請求 id」是 getuuid。

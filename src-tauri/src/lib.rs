@@ -23,6 +23,8 @@ pub fn run() {
             commands::collection::rename_entry,
             commands::collection::delete_entry,
             commands::env::list_environments,
+            commands::env::save_environment,
+            commands::env::delete_environment,
             commands::analyze::diff_json,
             commands::flow::list_flows,
             commands::flow::load_flow,

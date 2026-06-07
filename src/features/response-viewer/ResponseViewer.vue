@@ -5,6 +5,7 @@ import JsonTree from "../../shared/components/JsonTree.vue";
 import SchemaTree from "../../shared/components/SchemaTree.vue";
 import CodeGenPanel from "../../shared/components/CodeGenPanel.vue";
 import { inferValue } from "../../shared/analyze";
+import { getByPath } from "../../shared/jsonpath";
 import { diffJson } from "../../shared/api";
 import type { DiffEntry, DiffKind, KeyValue } from "../../shared/types";
 
@@ -112,6 +113,16 @@ const isLarge = computed(() => (session.response?.body.length ?? 0) > LARGE_BYTE
 // Schema 直接由已解析的值推測，不再重複 JSON.parse。
 const respSchema = computed(() => (parsed.value.ok ? inferValue(parsed.value.value) : null));
 
+// Pretty 過濾：輸入 JSONPath（如 $.data.items）只顯示該節點。
+const filter = ref("");
+const filtered = computed<{ ok: boolean; value: unknown; notFound: boolean }>(() => {
+  if (!parsed.value.ok) return { ok: false, value: null, notFound: false };
+  const f = filter.value.trim();
+  if (!f) return { ok: true, value: parsed.value.value, notFound: false };
+  const v = getByPath(parsed.value.value, f);
+  return { ok: true, value: v, notFound: v === undefined };
+});
+
 // 大回應預設切 Raw（避免遞迴渲染巨大樹）；否則保留目前分頁，
 // 不強制切回 Pretty——以免把正在看 Diff 的老爺踢走。
 watch(
@@ -201,7 +212,19 @@ function fmtSize(bytes: number) {
 
     <div v-if="session.response" class="resp-body">
       <template v-if="tab === 'pretty'">
-        <JsonTree v-if="parsed.ok" :data="parsed.value" :depth="0" />
+        <div v-if="parsed.ok" class="filterbar">
+          <input
+            v-model="filter"
+            class="filter-input mono"
+            placeholder="過濾：$.data.items[0]（留空顯示全部）"
+            spellcheck="false"
+          />
+          <button v-if="filter" class="clrf" title="清除過濾" @click="filter = ''">✕</button>
+        </div>
+        <template v-if="parsed.ok">
+          <p v-if="filtered.notFound" class="faint">查無此路徑：<code>{{ filter }}</code></p>
+          <JsonTree v-else :key="filter" :data="filtered.value" :depth="0" />
+        </template>
         <pre v-else class="raw">{{ session.response.body }}</pre>
       </template>
       <div v-else-if="tab === 'schema'" class="schema">
@@ -396,6 +419,21 @@ function fmtSize(bytes: number) {
 }
 .schema {
   font-size: 12.5px;
+}
+.filterbar {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.filter-input {
+  flex: 1;
+  padding: 4px 9px;
+  font-size: 12px;
+}
+.clrf {
+  font-size: 10px;
+  padding: 2px 7px;
 }
 .basebtn {
   font-size: 11px;

@@ -1,6 +1,6 @@
 [package]
 name = "reqmira"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reqmira — 輕量 API 工作台"
 authors = ["あまぎ <amagi.core@gmail.com>"]
 edition = "2021"
@@ -27,6 +27,7 @@ serde_yaml = "0.9"
 indexmap = { version = "2", features = ["serde"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "gzip"] }
 thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

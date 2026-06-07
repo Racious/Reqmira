@@ -27,6 +27,9 @@ pub struct RequestSpec {
     pub query: IndexMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub body: Option<BodySpec>,
+    /// 認證設定：pass-through 保存（結構由前端定義）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub docs: Option<DocsSpec>,
 }

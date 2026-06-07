@@ -20,7 +20,11 @@ pub fn resolve(input: &str, vars: &IndexMap<String, String>) -> String {
                 let key = input[i + 2..i + 2 + close].trim();
                 match vars.get(key) {
                     Some(val) => out.push_str(val),
-                    None => out.push_str(&input[i..i + 2 + close + 2]),
+                    // 使用者變數優先；未定義且以 $ 開頭者視為動態變數。
+                    None => match dynamic(key) {
+                        Some(val) => out.push_str(&val),
+                        None => out.push_str(&input[i..i + 2 + close + 2]),
+                    },
                 }
                 i = i + 2 + close + 2;
                 continue;
@@ -32,6 +36,28 @@ pub fn resolve(input: &str, vars: &IndexMap<String, String>) -> String {
         i += ch.len_utf8();
     }
     out
+}
+
+/// 動態變數（未被使用者變數覆寫時生效）：
+/// `$uuid`、`$timestamp`(秒)、`$timestampMs`(毫秒)、`$randomInt`(0–99999)。
+fn dynamic(key: &str) -> Option<String> {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    match key {
+        "$uuid" => Some(uuid::Uuid::new_v4().to_string()),
+        "$timestamp" => SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_secs().to_string()),
+        "$timestampMs" => SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| d.as_millis().to_string()),
+        "$randomInt" => SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .ok()
+            .map(|d| (d.subsec_nanos() % 100_000).to_string()),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -81,5 +107,28 @@ mod tests {
     #[test]
     fn empty_input() {
         assert_eq!(resolve("", &vars()), "");
+    }
+
+    #[test]
+    fn dynamic_vars() {
+        // timestamp 應為純數字
+        let ts = resolve("{{$timestamp}}", &vars());
+        assert!(ts.chars().all(|c| c.is_ascii_digit()) && !ts.is_empty());
+        // uuid 應為 36 字元含連字號
+        let id = resolve("{{$uuid}}", &vars());
+        assert_eq!(id.len(), 36);
+        assert_eq!(id.matches('-').count(), 4);
+    }
+
+    #[test]
+    fn user_var_overrides_dynamic() {
+        let mut m = vars();
+        m.insert("$uuid".into(), "fixed".into());
+        assert_eq!(resolve("{{$uuid}}", &m), "fixed");
+    }
+
+    #[test]
+    fn unknown_dynamic_kept() {
+        assert_eq!(resolve("{{$nope}}", &vars()), "{{$nope}}");
     }
 }

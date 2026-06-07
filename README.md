@@ -9,7 +9,9 @@
 ## 功能
 
 - **Request Builder**：GET/POST/PUT/PATCH/DELETE 等，Query／Headers／JSON·Text·Form Body，環境變數 `{{var}}`
-- **環境（Environment）**：local／dev／自訂環境切換，變數於 Rust 端解析（無 CORS）
+- **Auth 分頁**：Bearer／Basic／API Key 自動組 header，隨請求存檔
+- **動態變數／回應引用**：`{{$uuid}}`·`{{$timestamp}}` 自動生成；`{{responses.<id>.<path>}}` 跨請求引用回應
+- **環境（Environment）**：local／dev／自訂環境切換，變數於 Rust 端解析（無 CORS）；內建環境編輯 UI（免開檔）
 - **Request Inspector**：自動拆解 Path／Query／Headers，型別與格式推測（email/uuid/date…），JSON Body schema 推測
 - **Response Viewer**：狀態／耗時／大小、JSON Tree（點行展開、複製值／JSON／路徑）、Schema、Raw、Headers
 - **Codegen 沉澱**：由回應產生 TypeScript Interface／Java DTO（record）／Markdown API 文件
@@ -17,8 +19,11 @@
 - **History**：最近送出快照，可回顧、設為 Diff 基準
 - **Flow 自動化**：多步驟流程，回應變數抽取（JSONPath）、注入、斷言
 - **Collection 樹**：展開／收合、右鍵新增·重新命名·刪除、拖拉移動
-- **匯入**：貼上 curl 指令一鍵建立請求
-- **體驗**：未儲存標記、`Ctrl+Enter` 送出／`Ctrl+S` 儲存、JSON 格式化、複製反饋
+- **匯入**：貼 curl 指令；或 OpenAPI(swagger.json)／Postman collection 一鍵生成整組請求
+- **多語言 code snippet**：由請求產 curl／fetch／Python／Java 發送碼
+- **版面客製**：佈局上下↔左右、中欄比例拖曳、四面板各自收合、欄寬拖曳（皆記憶）
+- **命令面板**：`Ctrl+K` 快速跳請求／切環境／執行動作
+- **體驗**：未儲存標記、`Ctrl+Enter` 送出／`Ctrl+S` 儲存、JSON 格式化、複製反饋 toast
 
 ## 安裝
 

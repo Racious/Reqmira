@@ -1,0 +1,23 @@
+version: 1
+id: auth-and-dynamic
+name: Demo · Auth + 動態變數
+method: POST
+url: "{{baseUrl}}/anything"
+auth:
+  type: bearer
+  token: "{{token}}"
+body:
+  type: json
+  content: |-
+    {
+      "orderId": "{{$uuid}}",
+      "createdAt": {{$timestamp}},
+      "note": "demo auth + dynamic"
+    }
+docs:
+  tags:
+    - Demo
+  description: >-
+    請先將環境切到 demo 再送出。可一次看到三件事：
+    Auth 的 {{token}} 取自環境（demo-token-123）、body 的 {{$uuid}}/{{$timestamp}} 自動生成、
+    httpbin 會原樣回顯讓你核對。

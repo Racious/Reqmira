@@ -8,6 +8,7 @@ import * as api from "../api";
 import { getByPath } from "../jsonpath";
 import { useWorkspaceStore } from "./workspace";
 import { useSettingsStore } from "./settings";
+import { useResponses } from "./responses";
 import type {
   AssertResult,
   FlowSpec,
@@ -88,8 +89,21 @@ export const useFlowRunnerStore = defineStore("flowRunner", () => {
           const spec = await api.loadRequest(ws.root, step.request);
           const send = specToSend(spec);
           send.insecure = useSettingsStore().insecureSkipTlsVerify;
-          const variables = { ...ws.activeVariables, ...runtime, ...(step.variables ?? {}) };
+          const responses = useResponses();
+          const refVars = responses.refVars([
+            send.url,
+            send.body,
+            ...send.headers.map((h) => h.value),
+            ...send.query.map((q) => q.value),
+          ]);
+          const variables = {
+            ...ws.activeVariables,
+            ...refVars,
+            ...runtime,
+            ...(step.variables ?? {}),
+          };
           const resp = await api.sendRequest(send, variables);
+          responses.record(spec.id, resp.body);
 
           result.status = resp.status;
           result.durationMs = resp.durationMs;

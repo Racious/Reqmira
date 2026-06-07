@@ -3,15 +3,23 @@ import { ref, computed } from "vue";
 import { useSessionStore } from "../../shared/stores/session";
 import { useWorkspaceStore } from "../../shared/stores/workspace";
 import KeyValueEditor from "../../shared/components/KeyValueEditor.vue";
-import type { BodyType } from "../../shared/types";
+import RequestSnippet from "./RequestSnippet.vue";
+import type { BodyType, AuthType } from "../../shared/types";
 
 const session = useSessionStore();
 const ws = useWorkspaceStore();
+const showSnippet = ref(false);
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 const BODY_TYPES: BodyType[] = ["none", "json", "text", "form"];
+const AUTH_TYPES: { v: AuthType; label: string }[] = [
+  { v: "none", label: "None" },
+  { v: "bearer", label: "Bearer" },
+  { v: "basic", label: "Basic" },
+  { v: "apikey", label: "API Key" },
+];
 
-type Tab = "query" | "headers" | "body";
+type Tab = "query" | "headers" | "body" | "auth";
 const tab = ref<Tab>("query");
 
 const showSaveAs = ref(false);
@@ -65,6 +73,7 @@ function formatBody() {
         {{ session.sending ? "送出中…" : "送出" }}
       </button>
       <button :disabled="!session.draft" @click="onSave">儲存</button>
+      <button :disabled="!session.draft" title="產生多語言程式碼" @click="showSnippet = true">&lt;/&gt;</button>
     </div>
 
     <div class="namerow">
@@ -93,6 +102,9 @@ function formatBody() {
       <button class="tab" :class="{ on: tab === 'body' }" @click="tab = 'body'">
         Body <span v-if="session.draft.bodyType !== 'none'" class="dot" />
       </button>
+      <button class="tab" :class="{ on: tab === 'auth' }" @click="tab = 'auth'">
+        Auth <span v-if="session.draft.auth.type !== 'none'" class="dot" />
+      </button>
     </div>
 
     <div class="tab-body">
@@ -108,7 +120,7 @@ function formatBody() {
         key-placeholder="Header"
         value-placeholder="值"
       />
-      <div v-else class="bodypane">
+      <div v-else-if="tab === 'body'" class="bodypane">
         <div class="bodytype">
           <label v-for="bt in BODY_TYPES" :key="bt" class="bt">
             <input type="radio" :value="bt" v-model="session.draft.bodyType" />{{ bt }}
@@ -126,6 +138,37 @@ function formatBody() {
         />
         <p v-else class="dim empty">此請求無 Body。</p>
       </div>
+      <div v-else class="authpane">
+        <div class="authtype">
+          <label v-for="at in AUTH_TYPES" :key="at.v" class="bt">
+            <input type="radio" :value="at.v" v-model="session.draft.auth.type" />{{ at.label }}
+          </label>
+        </div>
+        <div v-if="session.draft.auth.type === 'bearer'" class="authfields">
+          <label>Token</label>
+          <input v-model="session.draft.auth.token" class="mono" placeholder="{{token}} 或實際 token" spellcheck="false" />
+          <p class="dim small">送出時組成 <code>Authorization: Bearer …</code></p>
+        </div>
+        <div v-else-if="session.draft.auth.type === 'basic'" class="authfields">
+          <label>使用者名稱</label>
+          <input v-model="session.draft.auth.username" spellcheck="false" />
+          <label>密碼</label>
+          <input v-model="session.draft.auth.password" type="password" spellcheck="false" />
+          <p class="dim small">送出時組成 <code>Authorization: Basic base64(user:pass)</code></p>
+        </div>
+        <div v-else-if="session.draft.auth.type === 'apikey'" class="authfields">
+          <label>名稱（Key）</label>
+          <input v-model="session.draft.auth.key" class="mono" placeholder="X-API-Key" spellcheck="false" />
+          <label>值（Value）</label>
+          <input v-model="session.draft.auth.value" class="mono" spellcheck="false" />
+          <label>放置位置</label>
+          <select v-model="session.draft.auth.addTo">
+            <option value="header">Header</option>
+            <option value="query">Query</option>
+          </select>
+        </div>
+        <p v-else class="dim empty">此請求不附帶認證。</p>
+      </div>
     </div>
 
     <p v-if="session.sendError" class="err">⚠ {{ session.sendError }}</p>
@@ -136,6 +179,8 @@ function formatBody() {
     <p class="dim">從左側選擇一個請求，或建立新請求。</p>
     <button class="primary" @click="session.newRequest()">＋ 新請求</button>
   </section>
+
+  <RequestSnippet v-if="showSnippet" @close="showSnippet = false" />
 </template>
 
 <style scoped>
@@ -259,6 +304,25 @@ function formatBody() {
 }
 .body-text {
   width: 100%;
+}
+.authtype {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.authfields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 460px;
+}
+.authfields label {
+  font-size: 12px;
+  color: var(--fg-dim);
+  margin-top: 6px;
+}
+.authfields .small {
+  margin: 8px 0 0;
 }
 .empty {
   padding: 12px 0;

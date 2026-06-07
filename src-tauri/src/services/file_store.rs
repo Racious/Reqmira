@@ -163,6 +163,35 @@ pub fn list_environments(root: &str) -> AppResult<Vec<Environment>> {
     Ok(envs)
 }
 
+/// 環境名稱僅允許安全字元（不可含路徑分隔或 ..），避免寫出 environments 之外。
+fn safe_env_name(name: &str) -> AppResult<&str> {
+    let n = name.trim();
+    if n.is_empty() || n.contains('/') || n.contains('\\') || n.contains("..") {
+        return Err(AppError::Invalid(format!("無效的環境名稱：{name}")));
+    }
+    Ok(n)
+}
+
+/// 寫入（或覆蓋）一個環境檔 `environments/<name>.yaml`。
+pub fn save_environment(root: &str, env: &Environment) -> AppResult<()> {
+    let name = safe_env_name(&env.name)?;
+    let dir = Path::new(root).join("environments");
+    fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{name}.yaml"));
+    fs::write(path, serde_yaml::to_string(env)?)?;
+    Ok(())
+}
+
+/// 刪除一個環境檔。
+pub fn delete_environment(root: &str, name: &str) -> AppResult<()> {
+    let name = safe_env_name(name)?;
+    let path = Path::new(root).join("environments").join(format!("{name}.yaml"));
+    if path.exists() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
 const FLOW_SUFFIX: &str = ".flow.yaml";
 
 /// 列出 `flows/*.flow.yaml` 的摘要。
@@ -318,6 +347,7 @@ mod tests {
             headers: indexmap::IndexMap::new(),
             query: indexmap::IndexMap::new(),
             body: None,
+            auth: None,
             docs: None,
         };
         let rel = "collections/sub/t.api.yaml";
@@ -330,6 +360,35 @@ mod tests {
         delete_request(&root_s, rel).expect("刪除應成功");
         assert!(load_request(&root_s, rel).is_err(), "刪除後應載不到");
         delete_request(&root_s, rel).expect("再次刪除應為 no-op，不報錯");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn saves_and_loads_auth() {
+        let root = std::env::temp_dir().join("reqmira_auth_test");
+        let root_s = root.to_string_lossy().to_string();
+        let _ = fs::remove_dir_all(&root);
+
+        let auth = serde_json::json!({ "type": "bearer", "token": "{{token}}" });
+        let spec = crate::models::RequestSpec {
+            version: 1,
+            id: "a".into(),
+            name: "A".into(),
+            method: "GET".into(),
+            url: "http://x".into(),
+            headers: indexmap::IndexMap::new(),
+            query: indexmap::IndexMap::new(),
+            body: None,
+            auth: Some(auth),
+            docs: None,
+        };
+        let rel = "collections/a.api.yaml";
+        save_request(&root_s, rel, &spec).expect("save 應成功");
+        let loaded = load_request(&root_s, rel).expect("應可載回");
+        let a = loaded.auth.expect("auth 應被保存");
+        assert_eq!(a.get("type").and_then(|v| v.as_str()), Some("bearer"));
+        assert_eq!(a.get("token").and_then(|v| v.as_str()), Some("{{token}}"));
 
         let _ = fs::remove_dir_all(&root);
     }

@@ -52,6 +52,14 @@ export function listEnvironments(root: string): Promise<Environment[]> {
   return invoke("list_environments", { root });
 }
 
+export function saveEnvironment(root: string, env: Environment): Promise<void> {
+  return invoke("save_environment", { root, env });
+}
+
+export function deleteEnvironment(root: string, name: string): Promise<void> {
+  return invoke("delete_environment", { root, name });
+}
+
 export function diffJson(left: string, right: string): Promise<DiffEntry[]> {
   return invoke("diff_json", { left, right });
 }

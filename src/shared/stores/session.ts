@@ -3,10 +3,11 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import * as api from "../api";
-import type { BodyType, HttpResponse, KeyValue, RequestSpec, SendRequest } from "../types";
+import type { AuthSpec, BodyType, HttpResponse, KeyValue, RequestSpec, SendRequest } from "../types";
 import { useWorkspaceStore } from "./workspace";
 import { useHistoryStore, type HistoryRequest } from "./history";
 import { useSettingsStore } from "./settings";
+import { useResponses } from "./responses";
 
 /** 編輯期的可變草稿（鍵值以陣列呈現，便於 UI 增刪與勾選）。 */
 export interface RequestDraft {
@@ -18,6 +19,7 @@ export interface RequestDraft {
   query: KeyValue[];
   bodyType: BodyType;
   bodyContent: string;
+  auth: AuthSpec;
 }
 
 /** Diff 比較基準：回應快照 + 來源標示。 */
@@ -52,6 +54,7 @@ function specToDraft(spec: RequestSpec): RequestDraft {
     query: recordToKv(spec.query),
     bodyType: spec.body?.type ?? "none",
     bodyContent: spec.body?.content ?? "",
+    auth: spec.auth ?? { type: "none" },
   };
 }
 
@@ -68,7 +71,33 @@ function draftToSpec(draft: RequestDraft): RequestSpec {
   if (draft.bodyType !== "none" && draft.bodyContent.trim()) {
     spec.body = { type: draft.bodyType, content: draft.bodyContent };
   }
+  if (draft.auth && draft.auth.type !== "none") {
+    spec.auth = { ...draft.auth };
+  }
   return spec;
+}
+
+/** 由 auth 設定組出要附加的 header / query。 */
+function buildAuth(auth?: AuthSpec): { headers: KeyValue[]; query: KeyValue[] } {
+  const headers: KeyValue[] = [];
+  const query: KeyValue[] = [];
+  if (!auth || auth.type === "none") return { headers, query };
+  if (auth.type === "bearer" && auth.token) {
+    headers.push({ key: "Authorization", value: `Bearer ${auth.token}`, enabled: true });
+  } else if (auth.type === "basic") {
+    let enc = `${auth.username ?? ""}:${auth.password ?? ""}`;
+    try {
+      enc = btoa(enc);
+    } catch {
+      /* 非 latin1 字元時退回原文 */
+    }
+    headers.push({ key: "Authorization", value: `Basic ${enc}`, enabled: true });
+  } else if (auth.type === "apikey" && auth.key) {
+    const kv = { key: auth.key, value: auth.value ?? "", enabled: true };
+    if (auth.addTo === "query") query.push(kv);
+    else headers.push(kv);
+  }
+  return { headers, query };
 }
 
 function blankDraft(): RequestDraft {
@@ -81,6 +110,7 @@ function blankDraft(): RequestDraft {
     query: [],
     bodyType: "none",
     bodyContent: "",
+    auth: { type: "none" },
   };
 }
 
@@ -152,6 +182,7 @@ export const useSessionStore = defineStore("session", () => {
       query: [],
       bodyType: p.bodyType,
       bodyContent: p.body,
+      auth: { type: "none" },
     };
     activePath.value = "";
     response.value = null;
@@ -167,17 +198,28 @@ export const useSessionStore = defineStore("session", () => {
     sending.value = true;
     sendError.value = "";
     try {
+      const authAdd = buildAuth(draft.value.auth);
       const payload: SendRequest = {
         method: draft.value.method,
         url: draft.value.url,
-        headers: draft.value.headers,
-        query: draft.value.query,
+        headers: [...draft.value.headers, ...authAdd.headers],
+        query: [...draft.value.query, ...authAdd.query],
         body: draft.value.bodyContent,
         bodyType: draft.value.bodyType,
         insecure: useSettingsStore().insecureSkipTlsVerify,
       };
-      const resp = await api.sendRequest(payload, ws.activeVariables);
+      // 回應引用：掃描各欄位中的 {{responses.*}} 解析成值，併入變數。
+      const responses = useResponses();
+      const refVars = responses.refVars([
+        payload.url,
+        payload.body,
+        ...payload.headers.map((h) => h.value),
+        ...payload.query.map((q) => q.value),
+      ]);
+      const variables = { ...ws.activeVariables, ...refVars };
+      const resp = await api.sendRequest(payload, variables);
       response.value = resp;
+      responses.record(draft.value.id, resp.body);
       // 保留當次送出的請求快照（深拷貝鍵值陣列，避免日後編輯草稿時連動竄改歷史）。
       const reqSnapshot: HistoryRequest = {
         name: draft.value.name,
@@ -213,6 +255,7 @@ export const useSessionStore = defineStore("session", () => {
       query: req.query.map((kv) => ({ ...kv })),
       bodyType: req.bodyType,
       bodyContent: req.bodyContent,
+      auth: { type: "none" },
     };
     activePath.value = "";
     sendError.value = "";

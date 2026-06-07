@@ -101,6 +101,19 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     localStorage.setItem(LS_ENV, name);
   }
 
+  async function saveEnvironment(env: Environment) {
+    if (!root.value) return;
+    await api.saveEnvironment(root.value, env);
+    await refresh();
+  }
+
+  async function deleteEnvironment(name: string) {
+    if (!root.value) return;
+    await api.deleteEnvironment(root.value, name);
+    if (activeEnvName.value === name) setActiveEnv("");
+    await refresh();
+  }
+
   return {
     root,
     collections,
@@ -119,5 +132,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     cancelInit,
     setRoot,
     setActiveEnv,
+    saveEnvironment,
+    deleteEnvironment,
   };
 });

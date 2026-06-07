@@ -1,0 +1,13 @@
+version: 1
+id: useuuid
+name: Demo · 引用上一支的 UUID
+method: GET
+url: "{{baseUrl}}/anything"
+query:
+  ref: "{{responses.getuuid.uuid}}"
+docs:
+  tags:
+    - Demo
+  description: >-
+    送這支之前，請先送過「Demo · 取得 UUID（先送這支）」。
+    送出後，回應的 args.ref 會等於那支回應裡的 uuid——這就是「回應引用」。
