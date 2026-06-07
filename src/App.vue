@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from "vue";
+import { getVersion } from "@tauri-apps/api/app";
 import { useWorkspaceStore } from "./shared/stores/workspace";
 import { useSessionStore } from "./shared/stores/session";
 import { useHistoryStore, type HistoryEntry } from "./shared/stores/history";
@@ -30,7 +31,7 @@ const flowRunner = useFlowRunnerStore();
 const settings = useSettingsStore();
 // 解構成頂層變數，Vue 模板才會自動解包 ref（直接用 toast.message 取到的是 ref 物件，
 // 恆為真，會導致提示框永遠不消失）。
-const { message: toastMessage, show: showToast } = useToast();
+const { message: toastMessage } = useToast();
 const { openMenu } = useContextMenu();
 const actions = useCollectionActions();
 const tree = useTree();
@@ -150,12 +151,6 @@ function fmtTime(ts: number): string {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-// 「載入此請求」：把該筆歷史當時送出的請求回填到編輯器。
-function loadReq(h: HistoryEntry) {
-  if (!h.request) return;
-  session.loadHistoryRequest(h.request);
-  showToast("已載入請求到編輯器");
-}
 
 // 「基準」開關：已是基準→取消；否則設為基準（自動切換掉前一筆）。
 function toggleBase(h: HistoryEntry) {
@@ -171,8 +166,12 @@ const workspaceName = computed(() => {
   return ws.root.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? ws.root;
 });
 
+const appVersion = ref("");
 onMounted(() => {
   if (ws.hasWorkspace) ws.refresh();
+  getVersion()
+    .then((v) => (appVersion.value = v))
+    .catch(() => {});
 });
 </script>
 
@@ -183,6 +182,7 @@ onMounted(() => {
       <div class="brand">
         <span class="logo">RL</span>
         <span class="bname">Reqmira</span>
+        <span v-if="appVersion" class="ver" :title="`Reqmira v${appVersion}`">v{{ appVersion }}</span>
       </div>
       <button class="ws-btn" :title="ws.root" @click="ws.pickWorkspace()">
         📂 {{ workspaceName }}
@@ -313,14 +313,6 @@ onMounted(() => {
             >
             <span class="htime faint">{{ fmtTime(h.sentAt) }}</span>
             <button
-              v-if="h.request"
-              class="hload"
-              title="載入此請求到編輯器"
-              @click.stop="loadReq(h)"
-            >
-              載入
-            </button>
-            <button
               class="hbase"
               :class="{ on: session.compareBase?.sourceId === h.id }"
               :title="session.compareBase?.sourceId === h.id ? '取消基準' : '設為 Diff 基準'"
@@ -444,6 +436,14 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+.ver {
+  font-size: 11px;
+  color: var(--fg-faint);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  margin-left: 2px;
 }
 .ws-btn {
   max-width: 280px;

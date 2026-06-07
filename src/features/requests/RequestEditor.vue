@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { useSessionStore } from "../../shared/stores/session";
 import { useWorkspaceStore } from "../../shared/stores/workspace";
 import KeyValueEditor from "../../shared/components/KeyValueEditor.vue";
+import CodeEditor from "../../shared/components/CodeEditor.vue";
 import RequestSnippet from "./RequestSnippet.vue";
 import type { BodyType, AuthType } from "../../shared/types";
 
@@ -128,13 +129,11 @@ function formatBody() {
           <button v-if="session.draft.bodyType === 'json'" class="fmt-btn" @click="formatBody">格式化</button>
           <span v-if="formatError" class="fmt-err">{{ formatError }}</span>
         </div>
-        <textarea
+        <CodeEditor
           v-if="session.draft.bodyType !== 'none'"
           v-model="session.draft.bodyContent"
-          class="body-text"
-          rows="12"
-          spellcheck="false"
-          :placeholder="session.draft.bodyType === 'json' ? '{\n  &quot;key&quot;: &quot;value&quot;\n}' : ''"
+          :language="session.draft.bodyType === 'json' ? 'json' : 'text'"
+          class="body-cm"
         />
         <p v-else class="dim empty">此請求無 Body。</p>
       </div>
@@ -304,6 +303,9 @@ function formatBody() {
 }
 .body-text {
   width: 100%;
+}
+.body-cm {
+  height: 320px;
 }
 .authtype {
   display: flex;

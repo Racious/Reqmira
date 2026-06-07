@@ -163,6 +163,14 @@ function fmtSize(bytes: number) {
         <button class="basebtn" title="將此回應設為 Diff 比較基準" @click="setAsBase">
           設為基準
         </button>
+        <button
+          v-if="session.viewedRequest"
+          class="loadbtn"
+          title="把這筆當時送出的請求載入編輯器"
+          @click="session.viewedRequest && session.loadHistoryRequest(session.viewedRequest)"
+        >
+          ↧ 載入請求
+        </button>
         <span v-if="session.compareBase" class="baseind" :title="session.compareBase.label">
           基準：{{ session.compareBase.label }}
         </span>
@@ -438,6 +446,18 @@ function fmtSize(bytes: number) {
 .basebtn {
   font-size: 11px;
   padding: 2px 9px;
+}
+.loadbtn {
+  font-size: 11px;
+  padding: 2px 10px;
+  background: var(--accent-3);
+  border: none;
+  color: #15102a;
+  font-weight: 700;
+}
+.loadbtn:hover {
+  filter: brightness(1.1);
+  color: #15102a;
 }
 .baseind {
   font-size: 11px;

@@ -1,6 +1,6 @@
 [package]
 name = "reqmira"
-version = "0.2.0"
+version = "0.3.0"
 description = "Reqmira — 輕量 API 工作台"
 authors = ["あまぎ <amagi.core@gmail.com>"]
 edition = "2021"
