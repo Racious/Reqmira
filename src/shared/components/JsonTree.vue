@@ -61,6 +61,31 @@ const display = computed(() => {
   return String(v);
 });
 
+/** epoch timestamp 內嵌提示（IDE inlay hint 風格）：
+ *  純數字 10 位（秒）或 13 位（毫秒）且換算年份合理（2001–2099）時，
+ *  在值右側附上本地時間，方便一眼讀懂 timeStamp 類欄位。 */
+const tsHint = computed(() => {
+  if (kind.value !== "string" && kind.value !== "number") return "";
+  const raw = String(props.data);
+  if (!/^\d{10}$|^\d{13}$/.test(raw)) return "";
+  const ms = raw.length === 10 ? Number(raw) * 1000 : Number(raw);
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  if (y < 2001 || y > 2099) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${y}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+});
+
+/** tooltip：含星期與時區的完整說明。 */
+const tsTitle = computed(() => {
+  if (!tsHint.value) return "";
+  const raw = String(props.data);
+  const unit = raw.length === 10 ? "秒" : "毫秒";
+  const d = new Date(raw.length === 10 ? Number(raw) * 1000 : Number(raw));
+  const week = ["日", "一", "二", "三", "四", "五", "六"][d.getDay()];
+  return `epoch ${unit}級時間戳 → ${tsHint.value}（週${week}，本地時區）`;
+});
+
 function copyPath() {
   if (props.path) copyWithToast(props.path, "已複製路徑");
 }
@@ -85,6 +110,7 @@ function copyValue() {
       <span v-if="nodeKey !== undefined" class="colon">:</span>
       <span v-if="isBranch" class="summary">{{ summary }}</span>
       <span v-else class="jval" :class="`t-${kind}`">{{ display }}</span>
+      <span v-if="tsHint" class="tshint" :title="tsTitle">⇢ {{ tsHint }}</span>
       <button class="copybtn" :title="isBranch ? '複製此節點 JSON' : '複製值'" @click.stop="copyValue">
         {{ isBranch ? "{ }" : "值" }}
       </button>
@@ -158,6 +184,14 @@ function copyValue() {
 }
 .colon {
   color: var(--fg-faint);
+}
+/* timestamp 內嵌提示：IDE inlay hint 風格的淡色註記 */
+.tshint {
+  color: var(--fg-faint);
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.85;
+  white-space: nowrap;
 }
 .summary {
   color: var(--fg-faint);
